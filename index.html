@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DINO Game</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dinoPrimary: '#0FBA68',
+            dinoSecondary: '#FFCA28',
+            dinoBg: '#1C1C2E',
+            dinoCard: '#2A2A40',
+            dinoModalBg: '#272743'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes cardPulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 202, 40, 0.4); }
+      50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 202, 40, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 202, 40, 0); }
+    }
+
+    @keyframes rewardAnimation {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    body {
+      font-family: 'Rubik', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    .dino-box {
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s ease;
+      background: linear-gradient(145deg, #2A2A40, #1f1f32);
+      border-radius: 18px;
+    }
+    .dino-box:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    }
+    .nav-btn {
+      transition: all 0.3s ease;
+      border-top: 3px solid transparent;
+    }
+    .nav-btn.active {
+      border-top: 3px solid #FFCA28;
+      color: #FFCA28;
+    }
+    .tab-btn {
+      transition: all 0.3s ease;
+    }
+    .tab-btn.active {
+      background-color: #0FBA68;
+      color: white;
+    }
+    .investment-card {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(15, 186, 104, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(15, 186, 104, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(15, 186, 104, 0); }
+    }
+    .box-shake {
+      animation: shake 0.5s;
+    }
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .dino-modal {
+      width: 90%;
+      max-width: 500px;
+      padding: 25px;
+      border-radius: 20px;
+      background: linear-gradient(to bottom, #3a3a5d, #2c2c4a);
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .modal-content {
+      max-height: 80vh;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .chest-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 250px;
+      margin: 20px 0;
+      perspective: 800px;
+    }
+    .chest {
+      width: 180px;
+      height: 140px;
+      position: relative;
+      transform-style: preserve-3d;
+      cursor: pointer;
+      transition: transform 0.5s ease;
+    }
+    .chest-top {
+      position: absolute;
+      top: 0;
+      width: 180px;
+      height: 40px;
+      background-color: #FFCA28;
+      transform-origin: bottom center;
+      transform: translateZ(0px) rotateX(0deg);
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+      border-radius: 5px 5px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      color: #b58700;
+      font-weight: bold;
+    }
+    .chest-body {
+      position: absolute;
+      top: 40px;
+      width: 180px;
+      height: 100px;
+      background-color: #E6B800;
+      border-radius: 0 0 5px 5px;
+      box-shadow: inset 0 -5px 15px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      color: #b58700;
+      font-weight: bold;
+    }
+    .chest.open .chest-top {
+      transform: translateZ(50px) rotateX(-100deg);
+    }
+    .reward-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .reward-card {
+      background: linear-gradient(135deg, #2A2A40, #1C1C2E);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      border: 2px solid #444;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .reward-card:hover {
+      transform: translateY(-5px);
+      border-color: #FFCA28;
+    }
+    .reward-card.selected {
+      animation: cardPulse 0.8s ease-in-out;
+      border-color: #FFCA28;
+      background: linear-gradient(135deg, #3c3c5c, #2c2c4a);
+    }
+    .notify-modal {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(145deg, #2A2A40, #1f1f32);
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      padding: 15px;
+      z-index: 999;
+      animation: rewardAnimation 0.5s;
+      border-left: 4px solid #0FBA68;
+    }
+    .difficulty-star {
+      font-size: 0.8rem;
+      color: #FFCA28;
+      margin-left: 5px;
+    }
+    .card-highlight {
+      animation: rewardAnimation 0.5s ease-out;
+    }
+
+    @keyframes highlightButton {
+  0% { box-shadow: 0 0 0 0 rgba(15, 186, 104, 0.7); }
+  50% { box-shadow: 0 0 0 8px rgba(15, 186, 104, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(15, 186, 104, 0); }
+}
+.animate-highlightButton {
+  animation: highlightButton 1.5s infinite;
+}
+    .quest-completed {
+  opacity: 0.5;
+  filter: brightness(0.7);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+    @keyframes coinFloat {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-50px) scale(0.5); opacity: 0; }
+}
+
+.coin-animation {
+  position: absolute;
+  pointer-events: none;
+  animation: coinFloat 0.8s ease-out forwards;
+  font-size: 1.2rem;
+  color: #FFCA28;
+  font-weight: bold;
+  z-index: 10;
+}
+    #click-area {
+  position: relative;
+  overflow: hidden;
+}
+    .wallet-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 186, 104, 0.3);
+}
+.news-card {
+  transition: all 0.3s ease;
+}
+.news-card:hover {
+  background: linear-gradient(145deg, #3c3c5c, #2c2c4a);
+}
+    .purchase-history {
+  margin-top: 10px;
+}
+  </style>
+</head>
+<body class="bg-dinoBg text-gray-100 min-h-screen pb-20">
+  <div class="max-w-md mx-auto px-4 pt-6 pb-20">
+    <div class="dino-box p-5 mb-6 relative">
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-3xl font-bold mt-1 text-dinoSecondary"><span id="balance">0</span></p>
+          <p class="text-gray-400 text-sm">DINO</p>
+        </div>
+        <div>
+          <p class="text-xl font-bold mt-1 text-dinoPrimary"><span id="dps">0</span></p>
+          <p class="text-gray-400 text-sm">DINO/сек</p>
+        </div>
+        <div class="bg-gray-800 rounded-full h-12 w-12 flex items-center justify-center">
+          <i class="fas fa-dragon text-xl text-dinoPrimary"></i>
+        </div>
+      </div>
+    </div>
+
+    <div id="content"></div>
+
+    <div class="fixed bottom-0 left-0 w-full bg-dinoCard py-2 px-4 flex justify-around border-t border-gray-700 z-10">
+      <button class="nav-btn active flex flex-col items-center w-1/5" data-tab="clicker">
+        <i class="fas fa-hand-pointer text-xl mb-1"></i>
+        <span class="text-xs">Кликер</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center w-1/5" data-tab="business">
+        <i class="fas fa-building text-xl mb-1"></i>
+        <span class="text-xs">Бизнес</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center w-1/5" data-tab="investments">
+        <i class="fas fa-chart-line text-xl mb-1"></i>
+        <span class="text-xs">Инвестиции</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center w-1/5" data-tab="quests">
+        <i class="fas fa-tasks text-xl mb-1"></i>
+        <span class="text-xs">Квесты</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center w-1/5" data-tab="profile">
+        <i class="fas fa-user text-xl mb-1"></i>
+        <span class="text-xs">Профиль</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="modal-container" class="hidden"></div>
+  <div id="notification-container"></div>
+
+  <script>
+// Состояние игры
+const state = {
+  balance: 100,
+  perClick: 2.5,
+  dps: 0,
+  clickUpgradeCost: 5000,
+ businesses: [
+  { id: 1, name: "Динозаврик Бургер", level: 0, baseIncome: 0.1, cost: 50, owned: 0 },
+  { id: 2, name: "DINO Фишинг", level: 0, baseIncome: 0.5, cost: 100, owned: 0 },
+  { id: 3, name: "Динозаврий Питомник", level: 0, baseIncome: 1, cost: 250, owned: 0 },
+  { id: 4, name: "DINO Ремонт", level: 0, baseIncome: 2, cost: 500, owned: 0 },
+  { id: 5, name: "МоноДино Экспресс", level: 0, baseIncome: 5, cost: 1000, owned: 0 },
+  { id: 6, name: "Отель Юрского Периода", level: 0, baseIncome: 10, cost: 2000, owned: 0 },
+  { id: 7, name: "Парк Развлечений DINO", level: 0, baseIncome: 20, cost: 4000, owned: 0 },
+  { id: 8, name: "DINO Research Labs", level: 0, baseIncome: 30, cost: 8000, owned: 0 },
+  { id: 9, name: "Шахты Мелового Периода", level: 0, baseIncome: 40, cost: 16000, owned: 0 },
+  { id: 10, name: "DINO Космическая Программа", level: 0, baseIncome: 50, cost: 32000, owned: 0 },
+  { id: 11, name: "Дино Завод Роботов", level: 0, baseIncome: 60, cost: 64000, owned: 0 },
+  { id: 12, name: "Дино Финансы", level: 0, baseIncome: 70, cost: 128000, owned: 0 },
+  { id: 13, name: "Банк Юрского Периода", level: 0, baseIncome: 80, cost: 256000, owned: 0 },
+  { id: 14, name: "DINO Крипто Экосистема", level: 0, baseIncome: 90, cost: 512000, owned: 0 },
+  { id: 15, name: "DINO Матрица Вселенной", level: 0, baseIncome: 100, cost: 5000000, owned: 0 },
+],
+  investments: {
+  realEstate: [
+    { id: "Дино Пещера", name: "Дино Пещера", basePrice: 100000, price: 100000, change: 0, owned: 0 },
+    { id: "Юрские Холмы", name: "Юрские Холмы", basePrice: 15000, price: 0, change: 0, owned: 0 },
+    { id: 2, name: "Остров Дино", basePrice: 2000000, price: 2000000, change: 0, owned: 0 },
+    { id: 3, name: "Дино Небоскреб", basePrice: 1000000, price: 1000000, change: 0, owned: 0 },
+    { id: 4, name: "Пентхаус Т-Рекс", basePrice: 5000000, price: 5000000, change: 0, owned: 0 },
+    { id: 5, name: "Дино Резиденция", basePrice: 20000000, price: 20000000, change: 0, owned: 0 },
+    { id: 6, name: "Юрский Замок", basePrice: 1000000, price: 10000000, change: 0, owned: 0 },
+    { id: 7, name: "Планета Дино", basePrice: 5000000000, price: 5000000000, change: 0, owned: 0 },
+    { id: 8, name: "Вулкан Раптора", basePrice: 100000000, price: 1000000000, change: 0, owned: 0 },
+    { id: 9, name: "Саванна Трицератопса", basePrice: 25000000000, price: 25000000000, change: 0, owned: 0 },
+    { id: 10, name: "Каньон Бронтозавра", basePrice: 5000000000, price: 5000000000, change: 0, owned: 0 },
+    { id: 11, name: "Метеоритный Кратер", basePrice: 10000000000, price: 10000000000, change: 0, owned: 0 },
+    { id: 12, name: "Лагуна Птеродактиля", basePrice: 25000000000, price: 25000000000, change: 0, owned: 0 },
+    { id: 13, name: "Дино Метрополис", basePrice: 50000000000, price: 50000000000, change: 0, owned: 0 },
+    { id: 14, name: "Оазис Стегозавра", basePrice: 100000000000, price: 100000000000, change: 0, owned: 0 },
+    { id: 15, name: "Космическая База Дино", basePrice: 250000000000, price: 250000000000, change: 0, owned: 0 },
+    { id: 16, name: "Подводный Риф Юрского", basePrice: 500000000000, price: 500000000000, change: 0, owned: 0 },
+    { id: 17, name: "Галактическая Усадьба", basePrice: 1000000000000, price: 1000000000000, change: 0, owned: 0 }
+  ],
+  purchaseHistory: {
+    realEstate: {},
+    stocks: {},
+    crypto: {}
+  },
+  stocks: [
+    { id: 1, name: "DINO Inc.", basePrice: 50000, price: 50000, change: 0, owned: 0 },
+    { id: 2, name: "Дино Корпорейшн", basePrice: 200000, price: 200000, change: 0, owned: 0 },
+    { id: 3, name: "Юрская Сталь", basePrice: 1000000, price: 1000000, change: 0, owned: 0 },
+    { id: 4, name: "Палео Технолоджи", basePrice: 5000000, price: 5000000, change: 0, owned: 0 },
+    { id: 5, name: "Трицератопс Инвест", basePrice: 20000000, price: 20000000, change: 0, owned: 0 },
+    { id: 6, name: "Раптор Групп", basePrice: 100000000, price: 100000000, change: 0, owned: 0 },
+    { id: 7, name: "Бронтозавр Финанс", basePrice: 500000000, price: 500000000, change: 0, owned: 0 },
+    { id: 8, name: "Стегозавр Холдинг", basePrice: 2000000000, price: 2000000000, change: 0, owned: 0 },
+    { id: 9, name: "Велоциратор Трейд", basePrice: 5000000000, price: 5000000000, change: 0, owned: 0 },
+    { id: 10, name: "Птеродактиль Аэро", basePrice: 10000000000, price: 10000000000, change: 0, owned: 0 },
+    { id: 11, name: "Мезозой Энерджи", basePrice: 25000000000, price: 25000000000, change: 0, owned: 0 },
+    { id: 12, name: "Крето Технолоджи", basePrice: 50000000000, price: 50000000000, change: 0, owned: 0 },
+    { id: 13, name: "Анкилозавр Индастриз", basePrice: 100000000000, price: 100000000000, change: 0, owned: 0 },
+    { id: 14, name: "Тираннозавр Капитал", basePrice: 250000000000, price: 250000000000, change: 0, owned: 0 },
+    { id: 15, name: "Дино Динамикс", basePrice: 500000000000, price: 500000000000, change: 0, owned: 0 },
+    { id: 16, name: "Юрский Венчур", basePrice: 1000000000000, price: 1000000000000, change: 0, owned: 0 },
+    { id: 17, name: "Палео Прогресс", basePrice: 2500000000000, price: 2500000000000, change: 0, owned: 0 },
+    { id: 18, name: "Космо Дино Корп", basePrice: 5000000000000, price: 5000000000000, change: 0, owned: 0 }
+  ],
+  crypto: [
+    { id: 1, name: "Tironozavr Coin", basePrice: 1000, price: 1000, change: 0, owned: 0 },
+    { id: 2, name: "Raptor Token", basePrice: 5000, price: 5000, change: 0, owned: 0 },
+    { id: 3, name: "Tricera Coin", basePrice: 20000, price: 20000, change: 0, owned: 0 },
+    { id: 4, name: "Stego Crypto", basePrice: 100000, price: 100000, change: 0, owned: 0 },
+    { id: 5, name: "Bronto Token", basePrice: 500000, price: 500000, change: 0, owned: 0 },
+    { id: 6, name: "Ptero Coin", basePrice: 2000000, price: 2000000, change: 0, owned: 0 },
+    { id: 7, name: "Mesozoik", basePrice: 10000000, price: 10000000, change: 0, owned: 0 },
+    { id: 8, name: "Cretaceous Cash", basePrice: 50000000, price: 50000000, change: 0, owned: 0 },
+    { id: 9, name: "Jurassic Gem", basePrice: 200000000, price: 200000000, change: 0, owned: 0 },
+    { id: 10, name: "Veloci Coin", basePrice: 1000000000, price: 1000000000, change: 0, owned: 0 },
+    { id: 11, name: "Ankylosaur Asset", basePrice: 5000000000, price: 5000000000, change: 0, owned: 0 },
+    { id: 12, name: "Mammoth Mint", basePrice: 20000000000, price: 20000000000, change: 0, owned: 0 },
+    { id: 13, name: "Saurian Stake", basePrice: 100000000000, price: 100000000000, change: 0, owned: 0 },
+    { id: 14, name: "Paleo Pulse", basePrice: 500000000000, price: 500000000000, change: 0, owned: 0 },
+    { id: 15, name: "Extinct Ether", basePrice: 2000000000000, price: 2000000000000, change: 0, owned: 0 },
+    { id: 16, name: "Tyranno Token", basePrice: 5000000000000, price: 5000000000000, change: 0, owned: 0 },
+    { id: 17, name: "Spiketail Spark", basePrice: 10000000000000, price: 10000000000000, change: 0, owned: 0 },
+    { id: 18, name: "Cretaceous Core", basePrice: 25000000000000, price: 25000000000000, change: 0, owned: 0 },
+    { id: 19, name: "Meso Mint", basePrice: 50000000000000, price: 50000000000000, change: 0, owned: 0 },
+    { id: 20, name: "Primal Pulse", basePrice: 100000000000000, price: 100000000000000, change: 0, owned: 0 }
+  ]
+},
+  quests: [],
+  dinoPoints: 0,
+  clicks: 0,
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 100,
+  lastInvestmentUpdate: Date.now(),
+  lastDPSUpdate: Date.now(),
+  currentTab: 'clicker',
+  currentInvestmentTab: 'realEstate',
+  questTab: 'quests',
+  chestsOpened: 0,
+  lastDailyBonus: null,
+  dailyBonusDay: 0,
+  telegramClicked: false,
+  telegramBonusClaimed: false,
+  telegramSubscribed: false,
+};
+
+// Генерация квестов
+function generateQuests() {
+  const quests = [
+    {
+      id: 1,
+      name: "Первые шаги",
+      description: "Сделайте 100 кликов",
+      type: 'clicks',
+      required: 100,
+      reward: 50,
+      difficulty: Math.max(1, Math.floor(state.level / 5) + 1)
+    },
+    {
+      id: 2,
+      name: "Начальный капитал",
+      description: "Заработайте 1000 DINO",
+      type: 'balance',
+      required: 1000,
+      reward: 75,
+      difficulty: Math.max(1, Math.floor(state.level / 5) + 1)
+    },
+    {
+      id: 3,
+      name: "Бизнес старт",
+      description: "Купите первый бизнес",
+      type: 'businesses',
+      required: 1,
+      reward: 75,
+      difficulty: Math.max(2, Math.floor(state.level / 4) + 1)
+    },
+    {
+      id: 4,
+      name: "Эксперт по кликам",
+      description: "Сделайте 1000 кликов",
+      type: 'clicks',
+      required: 1000,
+      reward: 100,
+      difficulty: Math.max(2, Math.floor(state.level / 4) + 1)
+    },
+    {
+      id: 5,
+      name: "Финансовая база",
+      description: "Заработайте 10000 DINO",
+      type: 'balance',
+      required: 10000,
+      reward: 100,
+      difficulty: Math.max(3, Math.floor(state.level / 3) + 1)
+    },
+    {
+      id: 6,
+      name: "Инвестиции",
+      description: "Купите 3 инвестиции",
+      type: 'investments',
+      required: 3,
+      reward: 100,
+      difficulty: Math.max(3, Math.floor(state.level / 3) + 1)
+    },
+    {
+      id: 7,
+      name: "Бизнес-империя",
+      description: "Купите 5 бизнесов",
+      type: 'businesses',
+      required: 5,
+      reward: 125,
+      difficulty: Math.max(4, Math.floor(state.level / 2) + 1)
+    },
+    {
+      id: 8,
+      name: "Богатство",
+      description: "Заработайте 100000 DINO",
+      type: 'balance',
+      required: 100000,
+      reward: 150,
+      difficulty: Math.max(4, Math.floor(state.level / 2) + 1)
+    }
+  ];
+  return quests;
+}
+
+// DOM элементы
+const balanceEl = document.getElementById('balance');
+const dpsEl = document.getElementById('dps');
+const contentEl = document.getElementById('content');
+const navBtns = document.querySelectorAll('.nav-btn');
+const modalContainer = document.getElementById('modal-container');
+const notifyContainer = document.getElementById('notification-container');
+
+// Обновление квестов
+function refreshQuests() {
+  state.quests = generateQuests();
+  state.lastQuestRefresh = Date.now();
+  saveGame();
+  if (state.currentTab === 'quests') renderQuests();
+}
+
+// Инициализация игры
+function initGame() {
+  loadGame();
+  updateDPS();
+  state.lastQuestRefresh = state.lastQuestRefresh || Date.now();
+
+  if (state.quests.length === 0) {
+    refreshQuests();
+  }
+
+  renderScreen(state.currentTab);
+  startGameLoop();
+  setupEventListeners();
+}
+
+// Загрузка сохраненной игры
+function loadGame() {
+  // Инициализация purchaseHistory, если она отсутствует
+  if (!state.purchaseHistory) {
+    state.purchaseHistory = {
+      realEstate: {},
+      stocks: {},
+      crypto: {}
+    };
+  }
+  const savedGame = localStorage.getItem('dinoGameSave');
+  if (savedGame) {
+    const parsed = JSON.parse(savedGame);
+    if (!parsed.telegramClicked) parsed.telegramClicked = false;
+    if (!parsed.telegramBonusClaimed) parsed.telegramBonusClaimed = false;
+    if (!parsed.telegramSubscribed) parsed.telegramSubscribed = false;
+    if (!parsed.chestsOpened) parsed.chestsOpened = 0;
+    if (!parsed.dinoPoints) parsed.dinoPoints = 0;
+    if (!parsed.dailyBonusDay) parsed.dailyBonusDay = 0;
+    if (!parsed.lastDailyBonus) parsed.lastDailyBonus = null;
+
+    // Добавляем basePrice и changePercent, если их нет
+    if (parsed.investments) {
+      parsed.investments.realEstate.forEach((inv, index) => {
+        if (!inv.basePrice) {
+          inv.basePrice = state.investments.realEstate[index].basePrice;
+        }
+        if (!inv.changePercent) {
+          inv.changePercent = 0;
+        }
+      });
+      parsed.investments.stocks.forEach((inv, index) => {
+        if (!inv.basePrice) {
+          inv.basePrice = state.investments.stocks[index].basePrice;
+        }
+        if (!inv.changePercent) {
+          inv.changePercent = 0;
+        }
+      });
+      parsed.investments.crypto.forEach((inv, index) => {
+        if (!inv.basePrice) {
+          inv.basePrice = state.investments.crypto[index].basePrice;
+        }
+        if (!inv.changePercent) {
+          inv.changePercent = 0;
+        }
+      });
+    }
+
+    if (!parsed.quests || parsed.quests.length === 0) {
+      state.level = parsed.level || 1;
+      parsed.quests = generateQuests();
+    }
+
+    Object.assign(state, parsed);
+    updateUI();
+  }
+}
+     if (!state.purchaseHistory) {
+  state.purchaseHistory = {
+    realEstate: {},
+    stocks: {},
+    crypto: {}
+  };
+}
+
+// Сохранение игры
+function saveGame() {
+  localStorage.setItem('dinoGameSave', JSON.stringify(state));
+}
+
+// Цикл игры
+function startGameLoop() {
+  setInterval(() => {
+    state.balance += state.dps;
+    const now = Date.now();
+    if (now - state.lastInvestmentUpdate > 60000) {
+      updateInvestmentPrices();
+      state.lastInvestmentUpdate = now;
+    }
+
+    if (state.quests.filter(q => !q.completed).length === 0 || now - state.lastQuestRefresh > 8 * 60 * 60 * 1000) {
+      refreshQuests();
+      state.lastQuestRefresh = now;
+    }
+
+    updateDPS();
+    updateUI();
+    saveGame();
+  }, 1000);
+}
+
+// Настройка слушателей событий
+function setupEventListeners() {
+  navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      navBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.currentTab = btn.dataset.tab;
+      renderScreen(state.currentTab);
+    });
+  });
+
+  contentEl.addEventListener('click', e => {
+    if (state.currentTab === 'clicker' && e.target.closest('#click-area')) {
+      handleClick(e);
+    }
+  });
+}
+
+// Обработка клика
+function handleClick(e) {
+  state.balance += state.perClick;
+  state.clicks++;
+  state.xp += 0.1;
+
+  const clickArea = document.getElementById('click-area');
+  const coin = document.createElement('div');
+  coin.className = 'coin-animation';
+  coin.innerHTML = `🪙 +${state.perClick.toFixed(2)}`;
+  coin.style.left = `${e.clientX - clickArea.getBoundingClientRect().left}px`;
+  coin.style.top = `${e.clientY - clickArea.getBoundingClientRect().top}px`;
+  clickArea.appendChild(coin);
+
+  setTimeout(() => coin.remove(), 800);
+
+  checkQuests('clicks');
+  checkQuests('balance');
+  checkLevelUp();
+  updateUI();
+  saveGame();
+}
+
+// Обновление цен на инвестиции
+function updateInvestmentPrices() {
+  state.investments.realEstate.forEach(investment => {
+    const changePercent = (Math.random() * 130) - 70; // Диапазон от -70% до +60%
+    const newPrice = investment.basePrice * (1 + changePercent / 100);
+    investment.change = (newPrice - investment.price).toFixed(2); // Разница в DINO
+    investment.price = Math.max(1000, newPrice.toFixed(2)); // Минимальная цена 1000 DINO
+    investment.changePercent = changePercent.toFixed(2); // Сохраняем процентное изменение
+  });
+
+  state.investments.stocks.forEach(investment => {
+    const changePercent = (Math.random() * 130) - 70; // Диапазон от -70% до +60%
+    const newPrice = investment.basePrice * (1 + changePercent / 100);
+    investment.change = (newPrice - investment.price).toFixed(2); // Разница в DINO
+    investment.price = Math.max(100, newPrice.toFixed(2)); // Минимальная цена 100 DINO
+    investment.changePercent = changePercent.toFixed(2); // Сохраняем процентное изменение
+  });
+
+  state.investments.crypto.forEach(investment => {
+    const changePercent = (Math.random() * 130) - 70; // Диапазон от -70% до +60%
+    const newPrice = investment.basePrice * (1 + changePercent / 100);
+    investment.change = (newPrice - investment.price).toFixed(2); // Разница в DINO
+    investment.price = Math.max(10, newPrice.toFixed(2)); // Минимальная цена 10 DINO
+    investment.changePercent = changePercent.toFixed(2); // Сохраняем процентное изменение
+  });
+
+  renderCurrentInvestmentTab(); // Обновляем интерфейс
+}
+// Обновление DPS
+function updateDPS() {
+  state.dps = state.businesses.reduce((total, business) => {
+    return total + (business.baseIncome * business.owned);
+  }, 0);
+  dpsEl.textContent = numberFormat(state.dps);
+}
+
+// Обновление интерфейса
+function updateUI() {
+  balanceEl.textContent = numberFormat(state.balance);
+  dpsEl.textContent = numberFormat(state.dps);
+}
+
+// Форматирование чисел
+function numberFormat(num) {
+  if (num > 1000000000) return (num / 1000000000).toFixed(2) + 'B';
+  if (num > 1000000) return (num / 1000000).toFixed(2) + 'M';
+  if (num > 1000) return (num / 1000).toFixed(2) + 'K';
+  return num.toFixed(2);
+}
+
+// Рендер активного экрана
+function renderScreen(screen) {
+  switch (screen) {
+    case 'clicker': renderClicker(); break;
+    case 'business': renderBusinesses(); break;
+    case 'investments': renderInvestments(); break;
+    case 'quests': renderQuests(); break;
+    case 'profile': renderProfile(); break;
+  }
+}
+
+// Рендер Кликера
+function renderClicker() {
+  contentEl.innerHTML = `
+    <div class="dino-box p-5 mb-4">
+      <div class="flex justify-between text-lg">
+        <span><span class="text-dinoPrimary font-bold">${state.perClick.toFixed(2)}</span> DINO <span class="text-sm text-gray-400">за клик</span></span>
+        <span class="text-green-400 hidden md:block">▲ 2.50 за улучшение</span>
+      </div>
+      <div class="w-full bg-gray-700 h-3 rounded-full mt-3">
+        <div class="bg-dinoPrimary h-3 rounded-full" style="width: 35%"></div>
+      </div>
+      <div class="text-right text-sm mt-1">${numberFormat(state.clickUpgradeCost)} DINO</div>
+      <div class="flex justify-between mt-4">
+        <button class="bg-dinoPrimary hover:bg-green-600 text-white py-2 px-4 rounded-xl text-sm" onclick="openUpgradeModal()">Улучшить</button>
+        <button class="bg-dinoSecondary hover:bg-yellow-500 text-black py-2 px-4 rounded-xl text-sm" onclick="openBonuses()">Ежедневный бонус</button>
+      </div>
+    </div>
+    <div id="click-area" class="dino-box text-center p-8 cursor-pointer">
+      <div class="text-6xl">🦖</div>
+      <p class="mt-2 text-white text-sm">Кликайте по динозавру чтобы зарабатывать DINO</p>
+      <p class="text-gray-400 text-xs mt-4">Кликов: ${state.clicks}</p>
+    </div>
+  `;
+}
+
+// Рендер Бизнеса
+function renderBusinesses() {
+  let businessesHTML = `
+    <div class="dino-box p-4 mb-4">
+      <h2 class="text-xl font-bold mb-4 text-center">Бизнесы</h2>
+      <div class="max-h-[500px] overflow-y-auto">
+  `;
+  state.businesses.forEach(business => {
+    const canBuy = state.balance >= business.cost;
+    const dps = numberFormat(business.baseIncome);
+    businessesHTML += `
+      <div class="dino-box p-3 mb-3 flex items-center justify-between">
+        <div class="flex-1">
+          <div class="flex items-center">
+            <i class="fas fa-store mr-2 text-dinoPrimary"></i>
+            <div>
+              <h3 class="font-bold">${business.name}</h3>
+              <p class="text-xs text-dinoPrimary">${dps} DINO/сек</p>
+              <p class="text-xs text-gray-400">Уровень: ${business.level}</p>
+            </div>
+          </div>
+        </div>
+        <div class="text-right ml-3">
+          <p class="text-sm">${numberFormat(business.cost)} DINO</p>
+          <p class="text-xs text-gray-400">Куплено: ${business.owned}</p>
+          <button class="mt-1 bg-dinoPrimary ${canBuy ? 'hover:bg-green-600' : 'opacity-50 cursor-not-allowed'} text-white py-1 px-3 rounded text-xs" onclick="buyBusiness(${business.id})">
+            Купить
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  businessesHTML += `
+      </div>
+    </div>
+  `;
+  contentEl.innerHTML = businessesHTML;
+}
+
+// Рендер Инвестиций
+function renderInvestments() {
+  contentEl.innerHTML = `
+    <div class="dino-box p-4">
+      <h2 class="text-xl font-bold mb-4 text-center">Инвестиции</h2>
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <button class="tab-btn ${state.currentInvestmentTab === 'realEstate' ? 'active' : ''} py-2 rounded text-xs" onclick="setInvestmentTab('realEstate')">Недвижимость</button>
+        <button class="tab-btn ${state.currentInvestmentTab === 'stocks' ? 'active' : ''} py-2 rounded text-xs" onclick="setInvestmentTab('stocks')">Акции</button>
+        <button class="tab-btn ${state.currentInvestmentTab === 'crypto' ? 'active' : ''} py-2 rounded text-xs" onclick="setInvestmentTab('crypto')">Крипта</button>
+        <button class="tab-btn ${state.currentInvestmentTab === 'wallet' ? 'active' : ''} py-2 rounded text-xs" onclick="setInvestmentTab('wallet')">Мой кошелек</button>
+      </div>
+      <div id="investment-list" class="max-h-[500px] overflow-y-auto"></div>
+    </div>
+  `;
+  renderCurrentInvestmentTab();
+}
+
+function renderCurrentInvestmentTab() {
+  const container = document.getElementById('investment-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (state.currentInvestmentTab === 'wallet') {
+    renderWallet();
+  } else {
+    const investments = state.investments[state.currentInvestmentTab];
+    investments.forEach(investment => {
+      const changeColor = investment.change >= 0 ? 'text-green-400' : 'text-red-400';
+      const changeIcon = investment.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+      const canBuy = state.balance >= investment.price;
+      container.innerHTML += `
+        <div class="dino-box p-3 mb-3">
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <h3 class="font-bold">${investment.name}</h3>
+              <p class="text-sm text-gray-400 mt-1">Цена: <span class="text-dinoPrimary">${numberFormat(investment.price)}</span> DINO</p>
+              <p class="text-sm flex items-center">
+                Изменение:
+                <span class="${changeColor} ml-1">
+                  <i class="fas ${changeIcon} mr-1"></i>
+                  ${Math.abs(investment.change).toFixed(2)} (${Math.abs(investment.changePercent).toFixed(2)}%)
+                </span>
+              </p>
+            </div>
+            <div class="text-right pl-3">
+              <button class="bg-dinoPrimary ${canBuy ? 'hover:bg-green-600' : 'opacity-50 cursor-not-allowed'} text-white py-1 px-3 rounded text-xs" onclick="buyInvestment(${investment.id}, '${state.currentInvestmentTab}')">
+                Купить
+              </button>
+              <p class="text-xs mt-1">В наличии: ${investment.owned}</p>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  }
+}
+
+function renderWallet() {
+  const container = document.getElementById('investment-list');
+  if (!container) return;
+  const ownedAssets = [
+    ...state.investments.realEstate.filter(i => i.owned > 0).map(i => ({ ...i, type: 'realEstate', typeName: 'Недвижимость' })),
+    ...state.investments.stocks.filter(i => i.owned > 0).map(i => ({ ...i, type: 'stocks', typeName: 'Акции' })),
+    ...state.investments.crypto.filter(i => i.owned > 0).map(i => ({ ...i, type: 'crypto', typeName: 'Крипта' }))
+  ];
+  if (ownedAssets.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-6">
+        <i class="fas fa-wallet text-3xl text-dinoPrimary mb-2"></i>
+        <p class="text-lg">Ваш кошелек пуст!</p>
+        <p class="text-sm text-gray-400 mt-2">Покупайте активы во вкладках Недвижимость, Акции или Крипта.</p>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = `
+    <div class="text-center mb-4">
+      <h3 class="text-lg font-bold">Ваши активы</h3>
+      <p class="text-sm text-gray-400">Общая стоимость: ${numberFormat(ownedAssets.reduce((sum, i) => sum + i.price * i.owned, 0))} DINO</p>
+    </div>
+  `;
+  ownedAssets.forEach(asset => {
+    const sellPrice = asset.price * 0.9;
+    const purchasePrices = state.purchaseHistory[asset.type][asset.id] || [];
+    container.innerHTML += `
+      <div class="dino-box p-3 mb-3 investment-card wallet-card">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="flex items-center">
+              <i class="fas ${asset.type === 'realEstate' ? 'fa-home' : asset.type === 'stocks' ? 'fa-chart-line' : 'fa-coins'} text-dinoPrimary mr-2"></i>
+              <div>
+                <h3 class="font-bold">${asset.name}</h3>
+                <p class="text-xs text-gray-400">${asset.typeName}</p>
+              </div>
+            </div>
+            <p class="text-sm text-gray-400 mt-1">Количество: ${asset.owned}</p>
+            <p class="text-sm text-gray-400">Текущая цена: ${numberFormat(asset.price)} DINO</p>
+            <p class="text-sm text-gray-400">Цена продажи за единицу: ${numberFormat(sellPrice)} DINO</p>
+            <p class="text-sm text-dinoSecondary">Общая стоимость: ${numberFormat(asset.price * asset.owned)} DINO</p>
+            <div class="purchase-history">
+              <p class="text-sm text-gray-400 font-bold">История покупок:</p>
+              ${purchasePrices.length > 0 ? purchasePrices.slice(0, 2).map((price, index) => {
+                const diff = sellPrice - price;
+                const diffPercent = ((sellPrice - price) / price * 100).toFixed(2);
+                const diffColor = diff >= 0 ? 'text-green-400' : 'text-red-400';
+                return `
+                  <p class="text-xs text-gray-400">Единица ${index + 1}: Куплено за ${numberFormat(Number(price))} DINO, продажа: ${numberFormat(sellPrice)} DINO (<span class="${diffColor}">${diff >= 0 ? '+' : ''}${numberFormat(diff)} DINO, ${diffPercent}%</span>)</p>
+                `;
+              }).join('') : '<p class="text-xs text-gray-400">История покупок временно недоступна</p>'}
+              ${purchasePrices.length > 2 ? `<button class="text-xs text-dinoPrimary hover:text-green-600 mt-1" onclick="openPurchaseHistoryModal(${asset.id}, '${asset.type}', '${asset.name}')">Показать полностью</button>` : ''}
+            </div>
+          </div>
+          <div class="text-right pl-3">
+            <button class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs mb-2" onclick="openSellModal(${asset.id}, '${asset.type}', ${asset.owned}, ${sellPrice})">
+              Продать
+            </button>
+            <button class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs" onclick="sellAll(${asset.id}, '${asset.type}')">
+              Продать все
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+function sellAsset(id, type) {
+  const asset = state.investments[type].find(i => i.id === id);
+  if (!asset || asset.owned === 0) return;
+  const sellPrice = asset.price * 0.9;
+  state.balance += sellPrice;
+  asset.owned--;
+  if (state.purchaseHistory[type][id] && state.purchaseHistory[type][id].length > 0) {
+    state.purchaseHistory[type][id].shift();
+  }
+  state.xp += 10;
+  showNotification(`Вы продали ${asset.name} за ${numberFormat(sellPrice)} DINO!`);
+  checkLevelUp();
+  updateUI();
+  saveGame();
+  renderWallet();
+}
+
+function sellAll(id, type) {
+  const asset = state.investments[type].find(i => i.id === id);
+  if (!asset || asset.owned === 0) return;
+  const sellPrice = asset.price * 0.9 * asset.owned;
+  state.balance += sellPrice;
+  if (state.purchaseHistory[type][id]) {
+    state.purchaseHistory[type][id] = [];
+  }
+  asset.owned = 0;
+  state.xp += 10 * asset.owned;
+  showNotification(`Вы продали все ${asset.name} за ${numberFormat(sellPrice)} DINO!`);
+  checkLevelUp();
+  updateUI();
+  saveGame();
+  renderWallet();
+}
+
+function openSellModal(id, type, owned, sellPrice) {
+  const asset = state.investments[type].find(i => i.id === id);
+  if (!asset) return;
+  const modalHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="dino-modal" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4 text-center">Продать ${asset.name}</h2>
+        <div class="modal-content">
+          <p class="text-sm text-gray-400 mb-2">Доступно для продажи: ${owned}</p>
+          <p class="text-sm text-gray-400 mb-4">Цена продажи за единицу: ${numberFormat(sellPrice)} DINO</p>
+          <div class="mb-4">
+            <label class="block text-sm text-gray-400 mb-2">Количество для продажи:</label>
+            <input id="sell-quantity" type="number" min="1" max="${owned}" value="1" class="w-full bg-dinoCard text-white p-2 rounded-lg border border-gray-600 focus:outline-none focus:border-dinoPrimary">
+          </div>
+          <div class="text-center mb-4">
+            <p class="text-sm text-gray-400">Итоговая сумма: <span id="sell-total">${numberFormat(sellPrice)}</span> DINO</p>
+          </div>
+          <button class="w-full bg-dinoPrimary hover:bg-green-600 text-white py-3 rounded-lg text-lg font-bold" onclick="confirmSell(${id}, '${type}', ${sellPrice})">
+            Подтвердить продажу
+          </button>
+        </div>
+        <button class="absolute top-4 right-4 text-gray-400 hover:text-white" onclick="closeModal()">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  modalContainer.innerHTML = modalHTML;
+  modalContainer.classList.remove('hidden');
+  const quantityInput = document.getElementById('sell-quantity');
+  const totalEl = document.getElementById('sell-total');
+  quantityInput.addEventListener('input', () => {
+    const quantity = Math.min(owned, Math.max(1, parseInt(quantityInput.value) || 1));
+    totalEl.textContent = numberFormat(quantity * sellPrice);
+  });
+}
+
+    function confirmSell(id, type, sellPrice) {
+  const asset = state.investments[type].find(i => i.id === id);
+  if (!asset) return;
+  const quantity = parseInt(document.getElementById('sell-quantity').value) || 1;
+  if (quantity > asset.owned) {
+    alert('Недостаточно активов для продажи!');
+    return;
+  }
+  const totalSellPrice = sellPrice * quantity;
+  state.balance += totalSellPrice;
+  asset.owned -= quantity;
+  if (state.purchaseHistory[type][id]) {
+    state.purchaseHistory[type][id] = state.purchaseHistory[type][id].slice(quantity);
+  }
+  state.xp += 10 * quantity;
+  showNotification(`Вы продали ${quantity} ${asset.name} за ${numberFormat(totalSellPrice)} DINO!`);
+  checkLevelUp();
+  updateUI();
+  saveGame();
+  closeModal();
+  renderWallet();
+}
+
+// Рендер Квестов
+function renderQuests() {
+  let questsHTML = `
+    <div class="dino-box p-4 mb-4">
+      <div class="flex justify-center space-x-3 mb-4">
+        <button id="quests-tab" class="tab-btn ${state.questTab === 'quests' ? 'active' : ''} py-2 px-4 rounded text-sm font-medium" onclick="setQuestTab('quests')">Квесты</button>
+        <button id="chest-tab" class="tab-btn ${state.questTab === 'chest' ? 'active' : ''} py-2 px-4 rounded text-sm font-medium" onclick="setQuestTab('chest')">Ящик</button>
+      </div>
+      <div id="quest-content" class="mt-3"></div>
+      <p class="text-center text-gray-400 text-xs mt-4">
+        <i class="fas fa-sync-alt mr-1"></i>
+        Новые квесты через: <span id="quest-timer">07:59:59</span>
+      </p>
+    </div>
+  `;
+  contentEl.innerHTML = questsHTML;
+  renderQuestContent();
+  startQuestTimer();
+}
+
+function renderQuestContent() {
+  const container = document.getElementById('quest-content');
+  if (!container) return;
+  if (state.questTab === 'chest') {
+    renderChestTab();
+  } else {
+    renderQuestsList();
+  }
+}
+
+function startQuestTimer() {
+  const timerEl = document.getElementById('quest-timer');
+  if (!timerEl) return;
+  const lastRefresh = state.lastQuestRefresh || Date.now();
+  const nextRefresh = lastRefresh + (8 * 60 * 60 * 1000);
+  function updateTimer() {
+    const now = Date.now();
+    const diff = nextRefresh - now;
+    if (diff <= 0) {
+      timerEl.textContent = '00:00:00';
+      refreshQuests();
+      return;
+    }
+    const hours = Math.floor(diff / (1000 * 60 * 60)).toString().padStart(2, '0');
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
+    timerEl.textContent = `${hours}:${minutes}:${seconds}`;
+    requestAnimationFrame(updateTimer);
+  }
+  updateTimer();
+}
+
+function renderQuestsList() {
+  const container = document.getElementById('quest-content');
+  if (!container) return;
+  container.innerHTML = '<h3 class="text-lg font-bold mb-1 text-center">Активные задания</h3>';
+  const activeQuests = state.quests.slice().sort((a, b) => {
+    if (a.completed && !b.completed) return 1;
+    if (!a.completed && b.completed) return -1;
+    return 0;
+  });
+  if (activeQuests.length === 0) {
+    container.innerHTML += `
+      <div class="text-center py-6">
+        <i class="fas fa-tasks text-3xl text-dinoPrimary mb-2"></i>
+        <p>Все задания выполнены!</p>
+        <p class="text-sm text-gray-400 mt-2">Новые задания появятся через некоторое время</p>
+      </div>
+    `;
+    return;
+  }
+  activeQuests.forEach(quest => {
+    const progress = getQuestProgress(quest);
+    const progressPercent = Math.min(100, (progress / quest.required) * 100);
+    const canComplete = progress >= quest.required && !quest.completed;
+    const stars = '★'.repeat(quest.difficulty);
+    container.innerHTML += `
+      <div class="dino-box p-3 mb-3 ${quest.completed ? 'quest-completed' : ''}">
+        <div class="flex justify-between items-center mb-2">
+          <h4 class="font-bold">${quest.name}</h4>
+          ${quest.completed ? '<i class="fas fa-check-circle text-dinoPrimary ml-2"></i>' : ''}
+          <span class="difficulty-star" title="Сложность">${stars}</span>
+        </div>
+        <p class="text-sm text-gray-400 my-2">${quest.description}</p>
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-dinoSecondary font-bold">${quest.reward} DINO Points</span>
+          <span class="text-xs">${Math.floor(progressPercent)}%</span>
+        </div>
+        <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
+          <div class="bg-dinoPrimary h-2 rounded-full" style="width: ${progressPercent}%"></div>
+        </div>
+        <p class="text-xs text-right mt-1">${progress.toFixed(0)} / ${quest.required.toFixed(0)}</p>
+        <button class="mt-2 w-full bg-dinoPrimary hover:bg-green-600 text-white py-2 rounded text-sm ${canComplete ? 'animate-highlightButton' : ''}" onclick="completeQuest(${quest.id})" ${quest.completed || !canComplete ? 'disabled' : ''}>
+          ${quest.completed ? 'Выполнено' : 'Получить награду'}
+        </button>
+      </div>
+    `;
+  });
+}
+
+function renderChestTab() {
+  const container = document.getElementById('quest-content');
+  if (!container) return;
+  const canOpen = state.dinoPoints >= 250;
+  container.innerHTML = `
+    <div class="text-center">
+      <h3 class="text-xl font-bold mb-3">Ящик с сюрпризом</h3>
+      <div class="mt-4 mb-3">
+        <div class="flex justify-center items-center">
+          <div class="bg-dinoCard rounded-full w-12 h-12 flex items-center justify-center">
+            <i class="fas fa-gem text-2xl text-dinoPrimary"></i>
+          </div>
+          <div class="ml-3 text-left">
+            <p class="text-gray-400 text-sm">Очки DINO:</p>
+            <p class="text-2xl font-bold text-dinoPrimary">${state.dinoPoints}</p>
+          </div>
+        </div>
+      </div>
+      <p class="text-gray-400 mb-4">Накопите 250 очков DINO для открытия ящика</p>
+      <div class="flex items-center justify-center text-sm mb-4">
+        <div class="bg-dinoCard p-2 rounded-lg">
+          <i class="fas fa-coins text-dinoSecondary"></i>
+          <span class="ml-2">${state.dinoPoints}/250</span>
+        </div>
+      </div>
+      <div class="chest-container">
+        <div id="chest" class="chest ${canOpen ? 'cursor-pointer' : 'opacity-70'}" onclick="if(${canOpen}) openChest()">
+          <div class="chest-top"><div>D</div></div>
+          <div class="chest-body"><div>?</div></div>
+        </div>
+      </div>
+      <p class="text-gray-400 text-sm mt-4">Ящики открыто: ${state.chestsOpened}</p>
+      <div class="mt-6 flex justify-center">
+        <button class="bg-dinoPrimary hover:bg-green-600 text-white py-3 px-8 rounded-lg text-lg font-bold flex items-center ${canOpen ? '' : 'opacity-50 cursor-not-allowed'}" onclick="if(${canOpen}) openChest()">
+          Открыть ящик (250 DINO Points)
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Рендер Профиля
+function renderProfile() {
+  const totalBusinesses = state.businesses.reduce((sum, b) => sum + b.owned, 0);
+  const totalInvestments = Object.values(state.investments).flat().reduce((sum, i) => sum + i.owned, 0);
+  const progressPercent = (state.xp / state.xpToNextLevel) * 100;
+  contentEl.innerHTML = `
+    <div class="dino-box p-5">
+      <h2 class="text-xl font-bold mb-4 text-center">Профиль</h2>
+      <div class="flex items-center justify-center mb-6">
+        <div class="relative">
+          <div class="w-24 h-24 rounded-full border-4 border-dinoPrimary bg-dinoCard flex items-center justify-center">
+            <i class="fas fa-dragon text-4xl text-dinoSecondary"></i>
+          </div>
+          <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-dinoPrimary text-white rounded-full px-3 py-1 text-xs font-bold">
+            Уровень ${state.level}
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="dino-box p-3 text-center">
+          <i class="fas fa-coins text-2xl text-dinoSecondary mb-2"></i>
+          <p class="font-bold">${numberFormat(state.balance)}</p>
+          <p class="text-xs text-gray-400">Всего DINO</p>
+        </div>
+        <div class="dino-box p-3 text-center">
+          <i class="fas fa-hand-pointer text-2xl text-dinoSecondary mb-2"></i>
+          <p class="font-bold">${state.clicks}</p>
+          <p class="text-xs text-gray-400">Всего кликов</p>
+        </div>
+        <div class="dino-box p-3 text-center">
+          <i class="fas fa-building text-2xl text-dinoSecondary mb-2"></i>
+          <p class="font-bold">${totalBusinesses}</p>
+          <p class="text-xs text-gray-400">Бизнесы</p>
+        </div>
+        <div class="dino-box p-3 text-center">
+          <i class="fas fa-gem text-2xl text-dinoSecondary mb-2"></i>
+          <p class="font-bold">${state.dinoPoints}</p>
+          <p class="text-xs text-gray-400">Очки DINO</p>
+        </div>
+      </div>
+      <div class="mb-6">
+        <h3 class="font-bold mb-2 flex justify-between">
+          <span>Прогресс уровня</span>
+          <span>${Math.floor(progressPercent)}%</span>
+        </h3>
+        <div class="w-full bg-gray-700 h-3 rounded-full">
+          <div class="bg-dinoPrimary h-3 rounded-full" style="width: ${progressPercent}%"></div>
+        </div>
+        <div class="flex justify-between mt-1">
+          <span class="text-xs">${state.xp.toFixed(0)}</span>
+          <span class="text-xs">${state.xpToNextLevel.toFixed(0)}</span>
+        </div>
+      </div>
+      <div class="flex justify-center">
+        <p class="text-xs text-center text-gray-400">
+          Доход увеличивается на ${state.level * 5}% за счет вашего уровня
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+// Открыть модальное окно улучшения
+function openUpgradeModal() {
+  const modalHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="dino-modal" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4 text-center">Улучшение клика</h2>
+        <div class="modal-content">
+          <div class="flex justify-center mb-6">
+            <div class="bg-dinoCard rounded-full w-16 h-16 flex items-center justify-center">
+              <i class="fas fa-hand-pointer text-3xl text-dinoPrimary"></i>
+            </div>
+          </div>
+          <div class="dino-box p-4 mb-4">
+            <div class="flex justify-between text-sm mb-2">
+              <span>Текущий доход за клик:</span>
+              <span class="text-dinoPrimary font-bold">${state.perClick.toFixed(2)} DINO</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span>После улучшения:</span>
+              <span class="text-dinoSecondary font-bold">${(state.perClick + 2.50).toFixed(2)} DINO</span>
+            </div>
+          </div>
+          <div class="dino-box p-4">
+            <div class="flex justify-between items-center mb-3">
+              <span>Стоимость улучшения:</span>
+              <span class="text-xl font-bold ${state.balance >= state.clickUpgradeCost ? 'text-dinoSecondary' : 'text-red-400'}">
+                ${numberFormat(state.clickUpgradeCost)} DINO
+              </span>
+            </div>
+            <button onclick="buyClickUpgrade(); closeModal();" class="w-full bg-dinoPrimary hover:bg-green-600 text-white py-3 rounded-lg text-lg font-bold ${state.balance >= state.clickUpgradeCost ? '' : 'opacity-50 cursor-not-allowed'}">
+              Улучшить
+            </button>
+          </div>
+        </div>
+        <button class="absolute top-4 right-4 text-gray-400 hover:text-white" onclick="closeModal()">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  modalContainer.innerHTML = modalHTML;
+  modalContainer.classList.remove('hidden');
+}
+
+// Бонусы: ежедневные награды
+function openBonuses() {
+  const now = new Date();
+  const lastBonus = state.lastDailyBonus ? new Date(state.lastDailyBonus) : null;
+  const canClaim = !lastBonus || (now - lastBonus) >= 24 * 60 * 60 * 1000;
+  const dailyBonuses = [
+    { day: 1, reward: 1000 },
+    { day: 2, reward: 2500 },
+    { day: 3, reward: 5000 },
+    { day: 4, reward: 10000 },
+    { day: 5, reward: 25000 },
+    { day: 6, reward: 50000 },
+    { day: 7, reward: 100000 },
+    { day: 8, reward: 250000 }
+  ];
+  const nextDay = state.dailyBonusDay >= 7 ? 0 : state.dailyBonusDay;
+  const modalHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="dino-modal" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4 text-center">Ежедневные бонусы</h2>
+        <div class="modal-content">
+          <div class="dino-box p-4 mb-4">
+            <div class="flex items-start">
+              <div class="bg-yellow-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                <i class="fas fa-calendar-day"></i>
+              </div>
+              <div>
+                <h3 class="font-bold mb-1">${canClaim ? 'Заберите ваш бонус!' : 'Бонус уже получен!'}</h3>
+                <p class="text-sm text-gray-400">${canClaim ? 'Сегодняшний бонус ждет вас!' : 'Возвращайтесь за новым бонусом завтра!'}</p>
+              </div>
+            </div>
+          </div>
+          ${state.telegramBonusClaimed ? `
+            <div class="dino-box p-4 mb-4 bg-green-900 bg-opacity-30">
+              <div class="flex items-center">
+                <div class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                  <i class="fas fa-check"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold">Вы получили бонус за подписку!</h3>
+                  <p class="text-sm text-gray-400">Спасибо за подписку на наш канал!</p>
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div class="dino-box p-4 mb-4">
+              <div class="flex items-start">
+                <div class="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">
+                  <i class="fab fa-telegram"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold mb-1">Подписка на Telegram</h3>
+                  <p class="text-sm text-gray-400">Подпишитесь на наш канал и получите бонус 100.000 DINO!</p>
+                  <a href="https://t.me/dinogamed" target="_blank" id="telegram-link" class="text-blue-400 text-sm block mt-1">https://t.me/dinogamed</a>
+                </div>
+              </div>
+              <button id="claim-telegram-bonus" class="mt-3 w-full py-2 rounded-lg ${state.telegramSubscribed ? 'bg-dinoPrimary hover:bg-green-600' : 'bg-gray-600'} text-white" ${state.telegramSubscribed ? '' : 'disabled'}>
+                <i class="fas fa-gift mr-2"></i> ${state.telegramSubscribed ? 'Забрать 100K DINO' : 'Подпишитесь, чтобы забрать'}
+              </button>
+            </div>
+          `}
+          <div class="dino-box p-4">
+            <div class="flex justify-between items-center mb-3">
+              <div class="flex items-center">
+                <i class="fas ${canClaim ? 'fa-gift text-dinoPrimary' : 'fa-clock text-gray-500'} text-2xl mr-2"></i>
+                <div>
+                  <h4 class="font-bold">${canClaim ? 'Сегодняшний бонус' : 'Следующий бонус'}</h4>
+                  <p class="text-xs text-gray-400">${dailyBonuses[canClaim ? state.dailyBonusDay : nextDay].day} день</p>
+                </div>
+              </div>
+              <button id="claim-bonus-btn" onclick="claimDailyBonus()" class="bg-dinoPrimary ${canClaim ? 'hover:bg-green-600' : 'opacity-50 cursor-not-allowed'} text-white py-1 px-3 rounded text-sm">
+                ${canClaim ? 'Забрать' : 'Закрыть'}
+              </button>
+            </div>
+            <p class="text-center text-dinoSecondary font-bold">${numberFormat(dailyBonuses[canClaim ? state.dailyBonusDay : nextDay].reward)} DINO</p>
+          </div>
+        </div>
+        <button class="absolute top-4 right-4 text-gray-400 hover:text-white" onclick="closeModal()">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  modalContainer.innerHTML = modalHTML;
+  modalContainer.classList.remove('hidden');
+  if (!state.telegramBonusClaimed) {
+    const telegramLink = modalContainer.querySelector('#telegram-link');
+    const claimBtn = modalContainer.querySelector('#claim-telegram-bonus');
+    if (telegramLink && claimBtn) {
+      telegramLink.addEventListener('click', () => {
+        state.telegramSubscribed = true;
+        claimBtn.disabled = false;
+        claimBtn.classList.remove('bg-gray-600');
+        claimBtn.classList.add('bg-dinoPrimary', 'hover:bg-green-600');
+        claimBtn.innerHTML = '<i class="fas fa-gift mr-2"></i> Забрать 100K DINO';
+        saveGame();
+      });
+      claimBtn.addEventListener('click', () => {
+        if (state.telegramSubscribed && !state.telegramBonusClaimed) {
+          state.balance += 100000;
+          state.telegramBonusClaimed = true;
+          showNotification('Вы получили 100.000 DINO за подписку на Telegram!');
+          saveGame();
+          updateUI();
+          openBonuses();
+        }
+      });
+    }
+  }
+}
+
+// Покупка бизнеса
+function buyBusiness(id) {
+  const business = state.businesses.find(b => b.id === id);
+  if (!business) return;
+  if (state.balance >= business.cost) {
+    state.balance -= business.cost;
+    business.owned++;
+    business.level++;
+    business.cost = Math.round(business.cost * 1.18);
+    state.xp += 15;
+    checkLevelUp();
+    checkQuests('businesses');
+    updateDPS();
+    updateUI();
+    saveGame();
+  } else {
+    alert(`Недостаточно DINO для покупки ${business.name}!`);
+  }
+}
+// Покупка инвестиции
+function buyInvestment(id, type) {
+  const investment = state.investments[type].find(i => i.id === id);
+  if (!investment) return;
+  if (state.balance >= investment.price) {
+    state.balance -= investment.price;
+    investment.owned++;
+    if (!state.purchaseHistory[type][id]) {
+      state.purchaseHistory[type][id] = [];
+    }
+    state.purchaseHistory[type][id].push(Number(investment.price)); // Сохраняем цену как число
+    state.xp += 20;
+    checkLevelUp();
+    checkQuests('investments');
+    updateUI();
+    saveGame();
+  } else {
+    alert(`Недостаточно DINO для покупки ${investment.name}!`);
+  }
+}
+
+// Завершение квеста
+function completeQuest(id) {
+  const quest = state.quests.find(q => q.id === id);
+  if (!quest || quest.completed) return;
+  const progress = getQuestProgress(quest);
+  if (progress < quest.required) return;
+  quest.completed = true;
+  state.dinoPoints += quest.reward;
+  state.xp += Math.max(15, Math.floor(quest.reward / 5));
+  checkLevelUp();
+  showNotification(`Вы выполнили квест "${quest.name}" и получили ${quest.reward} DINO Points`);
+  if (state.quests.filter(q => !q.completed).length === 0) {
+    refreshQuests();
+  }
+  renderQuests();
+  updateUI();
+  saveGame();
+}
+
+// Получить ежедневный бонус
+function claimDailyBonus() {
+  const now = new Date();
+  const lastBonus = state.lastDailyBonus ? new Date(state.lastDailyBonus) : null;
+  if (lastBonus && (now - lastBonus) < 24 * 60 * 60 * 1000) {
+    alert('Вы уже получали бонус сегодня! Возвращайтесь завтра.');
+    return;
+  }
+  const dailyBonuses = [
+    { day: 1, reward: 1000 },
+    { day: 2, reward: 2500 },
+    { day: 3, reward: 5000 },
+    { day: 4, reward: 10000 },
+    { day: 5, reward: 25000 },
+    { day: 6, reward: 50000 },
+    { day: 7, reward: 100000 },
+    { day: 8, reward: 250000 }
+  ];
+  const currentDayBonus = dailyBonuses[state.dailyBonusDay];
+  state.balance += currentDayBonus.reward;
+  state.lastDailyBonus = now;
+  state.dailyBonusDay = state.dailyBonusDay >= 7 ? 0 : state.dailyBonusDay + 1;
+  showNotification(`Вы получили ${currentDayBonus.reward} DINO за ежедневный бонус!`);
+  updateUI();
+  saveGame();
+  closeModal();
+}
+
+// Открытие ящика
+function openChest() {
+  if (state.dinoPoints < 250) {
+    alert("Недостаточно очков DINO!");
+    return;
+  }
+  state.dinoPoints -= 250;
+  state.chestsOpened++;
+  state.lastChestOpened = Date.now();
+  const rewards = [
+    { id: 1, value: 10000 + Math.floor(Math.random() * 10000), chance: 0.4 },
+    { id: 2, value: 25000 + Math.floor(Math.random() * 15000), chance: 0.3 },
+    { id: 3, value: 50000 + Math.floor(Math.random() * 25000), chance: 0.2 },
+    { id: 4, value: 80000 + Math.floor(Math.random() * 70000), chance: 0.1 }
+  ];
+  const rand = Math.random();
+  let cumulative = 0;
+  let selectedReward = null;
+  for (const reward of rewards) {
+    cumulative += reward.chance;
+    if (rand <= cumulative) {
+      selectedReward = reward;
+      break;
+    }
+  }
+  selectedReward.value = Math.floor(selectedReward.value * (1 + state.level * 0.15));
+  state.balance += selectedReward.value;
+  showChestRewardModal(selectedReward, rewards);
+}
+
+// Показать модальное окно с наградами сундука
+function showChestRewardModal(selectedReward, rewards) {
+  const modalHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="dino-modal" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4 text-center">Награда из сундука</h2>
+        <div class="text-center mb-4">
+          <p class="text-lg">Поздравляем с открытием сундука!</p>
+          <p class="text-sm text-gray-400">Вы получили:</p>
+        </div>
+        <div class="reward-grid">
+          ${rewards.map(reward => `
+            <div id="reward-${reward.id}" class="reward-card ${reward.id === selectedReward.id ? 'selected card-highlight' : ''}">
+              <div class="text-xl font-bold mb-2">${numberFormat(reward.value)} DINO</div>
+              <div class="text-sm">${reward.chance * 100}% шанс</div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="text-center mt-6">
+          <button onclick="closeModal()" class="bg-dinoPrimary hover:bg-green-600 text-white py-3 px-8 rounded-lg">
+            Забрать награду
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  modalContainer.innerHTML = modalHTML;
+  modalContainer.classList.remove('hidden');
+  if (selectedReward) {
+    setTimeout(() => {
+      const selectedCard = document.getElementById(`reward-${selectedReward.id}`);
+      if (selectedCard) selectedCard.classList.add('card-highlight');
+    }, 500);
+  }
+}
+
+// Отображение уведомления
+function showNotification(message) {
+  const notification = document.createElement('div');
+  notification.className = 'notify-modal';
+  notification.innerHTML = `
+    <div class="flex items-center">
+      <i class="fas fa-check-circle text-dinoPrimary mr-2"></i>
+      <p>${message}</p>
+    </div>
+  `;
+  notifyContainer.appendChild(notification);
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(20px)';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Проверка уровня
+function checkLevelUp() {
+  if (state.xp >= state.xpToNextLevel) {
+    state.level++;
+    state.xp = 0;
+    state.xpToNextLevel = Math.round(state.xpToNextLevel * 1.8);
+    showNotification(`Вы достигли уровня ${state.level}! Новые возможности разблокированы!`);
+    refreshQuests();
+    saveGame();
+  }
+}
+
+// Проверка квестов
+function checkQuests(type) {
+  const relevantQuests = state.quests.filter(q => q.type === type && !q.completed);
+  relevantQuests.forEach(quest => {
+    const progress = getQuestProgress(quest);
+  });
+}
+
+// Прогресс квеста
+function getQuestProgress(quest) {
+  switch (quest.type) {
+    case 'balance': return state.balance;
+    case 'clicks': return state.clicks;
+    case 'businesses': return state.businesses.reduce((total, b) => total + b.owned, 0);
+    case 'investments': return Object.values(state.investments).flat().reduce((total, i) => total + i.owned, 0);
+    default: return 0;
+  }
+}
+
+// Закрыть модальное окно
+function closeModal() {
+  modalContainer.innerHTML = '';
+  modalContainer.classList.add('hidden');
+}
+
+window.setInvestmentTab = function(tab) {
+  state.currentInvestmentTab = tab;
+  renderInvestments();
+}
+
+window.setQuestTab = function(tab) {
+  state.questTab = tab;
+  document.querySelectorAll('#quests-tab, #chest-tab').forEach(btn => btn.classList.remove('active'));
+  if (tab === 'quests') {
+    document.getElementById('quests-tab').classList.add('active');
+  } else {
+    document.getElementById('chest-tab').classList.add('active');
+  }
+  renderQuestContent();
+}
+
+window.buyClickUpgrade = function() {
+  if (state.balance >= state.clickUpgradeCost) {
+    state.balance -= state.clickUpgradeCost;
+    state.perClick += 2.50;
+    state.clickUpgradeCost = Math.round(state.clickUpgradeCost * 1.5);
+    state.xp += 10;
+    checkLevelUp();
+    updateUI();
+    saveGame();
+  }
+};
+window.buyBusiness = buyBusiness;
+window.buyInvestment = buyInvestment;
+window.completeQuest = completeQuest;
+window.openChest = openChest;
+window.openBonuses = openBonuses;
+window.openUpgradeModal = openUpgradeModal;
+window.claimDailyBonus = claimDailyBonus;
+window.closeModal = closeModal;
+window.sellAsset = sellAsset;
+window.sellAll = sellAll;
+window.openSellModal = openSellModal;
+window.confirmSell = confirmSell;
+window.openPurchaseHistoryModal = openPurchaseHistoryModal;
+
+function openPurchaseHistoryModal(id, type, name) {
+  const purchasePrices = state.purchaseHistory[type][id] || [];
+  const asset = state.investments[type].find(i => i.id === id);
+  if (!asset) return;
+  const sellPrice = asset.price * 0.9;
+  const modalHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="dino-modal" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4 text-center">История покупок: ${name}</h2>
+        <div class="modal-content">
+          <p class="text-sm text-gray-400 mb-2">Текущая цена продажи за единицу: ${numberFormat(sellPrice)} DINO</p>
+          <div class="max-h-[300px] overflow-y-auto">
+            ${purchasePrices.length > 0 ? purchasePrices.map((price, index) => {
+              const diff = sellPrice - price;
+              const diffPercent = ((sellPrice - price) / price * 100).toFixed(2);
+              const diffColor = diff >= 0 ? 'text-green-400' : 'text-red-400';
+              return `
+                <div class="dino-box p-2 mb-2">
+                  <p class="text-xs text-gray-400">Единица ${index + 1}: Куплено за ${numberFormat(price)} DINO</p>
+                  <p class="text-xs text-gray-400">Продажа: ${numberFormat(sellPrice)} DINO (<span class="${diffColor}">${diff >= 0 ? '+' : ''}${numberFormat(diff)} DINO, ${diffPercent}%</span>)</p>
+                </div>
+              `;
+            }).join('') : '<p class="text-sm text-gray-400">Нет данных о покупках</p>'}
+          </div>
+          <button class="w-full bg-dinoPrimary hover:bg-green-600 text-white py-3 rounded-lg text-lg font-bold mt-4" onclick="closeModal()">
+            Закрыть
+          </button>
+        </div>
+        <button class="absolute top-4 right-4 text-gray-400 hover:text-white" onclick="closeModal()">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  modalContainer.innerHTML = modalHTML;
+  modalContainer.classList.remove('hidden');
+}
+
+document.addEventListener('DOMContentLoaded', initGame);
+</script>
+</body>
+</html>
