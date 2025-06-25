@@ -546,6 +546,7 @@ function loadGame() {
     if (!parsed.dinoPoints) parsed.dinoPoints = 0;
     if (!parsed.dailyBonusDay) parsed.dailyBonusDay = 0;
     if (!parsed.lastDailyBonus) parsed.lastDailyBonus = null;
+    if (!parsed.clicks) parsed.clicks = 0;
 
     // Добавляем basePrice и changePercent, если их нет
     if (parsed.investments) {
@@ -1077,29 +1078,30 @@ function renderQuestsList() {
   }
   activeQuests.forEach(quest => {
     const progress = getQuestProgress(quest);
-    const progressPercent = Math.min(100, (progress / quest.required) * 100);
-    const canComplete = progress >= quest.required && !quest.completed;
-    const stars = '★'.repeat(quest.difficulty);
-    container.innerHTML += `
-      <div class="dino-box p-3 mb-3 ${quest.completed ? 'quest-completed' : ''}">
-        <div class="flex justify-between items-center mb-2">
-          <h4 class="font-bold">${quest.name}</h4>
-          ${quest.completed ? '<i class="fas fa-check-circle text-dinoPrimary ml-2"></i>' : ''}
-          <span class="difficulty-star" title="Сложность">${stars}</span>
-        </div>
-        <p class="text-sm text-gray-400 my-2">${quest.description}</p>
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-dinoSecondary font-bold">${quest.reward} DINO Points</span>
-          <span class="text-xs">${Math.floor(progressPercent)}%</span>
-        </div>
-        <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
-          <div class="bg-dinoPrimary h-2 rounded-full" style="width: ${progressPercent}%"></div>
-        </div>
-        <p class="text-xs text-right mt-1">${progress.toFixed(0)} / ${quest.required.toFixed(0)}</p>
-        <button class="mt-2 w-full bg-dinoPrimary hover:bg-green-600 text-white py-2 rounded text-sm ${canComplete ? 'animate-highlightButton' : ''}" onclick="completeQuest(${quest.id})" ${quest.completed || !canComplete ? 'disabled' : ''}>
-          ${quest.completed ? 'Выполнено' : 'Получить награду'}
-        </button>
-      </div>
+const validProgress = isNaN(progress) ? 0 : progress;
+const progressPercent = Math.min(100, (validProgress / quest.required) * 100);
+const canComplete = validProgress >= quest.required && !quest.completed;
+const stars = '★'.repeat(quest.difficulty);
+container.innerHTML += `
+  <div class="dino-box p-3 mb-3 ${quest.completed ? 'quest-completed' : ''}">
+    <div class="flex justify-between items-center mb-2">
+      <h4 class="font-bold">${quest.name}</h4>
+      ${quest.completed ? '<i class="fas fa-check-circle text-dinoPrimary ml-2"></i>' : ''}
+      <span class="difficulty-star" title="Сложность">${stars}</span>
+    </div>
+    <p class="text-sm text-gray-400 my-2">${quest.description}</p>
+    <div class="flex items-center justify-between mb-1">
+      <span class="text-dinoSecondary font-bold">${quest.reward} DINO Points</span>
+      <span class="text-xs">${Math.floor(progressPercent)}%</span>
+    </div>
+    <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
+      <div class="bg-dinoPrimary h-2 rounded-full" style="width: ${progressPercent}%"></div>
+    </div>
+    <p class="text-xs text-right mt-1">${validProgress.toFixed(0)} / ${quest.required.toFixed(0)}</p>
+    <button class="mt-2 w-full bg-dinoPrimary hover:bg-green-600 text-white py-2 rounded text-sm ${canComplete ? 'animate-highlightButton' : ''}" onclick="completeQuest(${quest.id})" ${quest.completed || !canComplete ? 'disabled' : ''}>
+      ${quest.completed ? 'Выполнено' : 'Получить награду'}
+    </button>
+  </div>
     `;
   });
 }
@@ -1556,10 +1558,10 @@ function checkQuests(type) {
 // Прогресс квеста
 function getQuestProgress(quest) {
   switch (quest.type) {
-    case 'balance': return state.balance;
-    case 'clicks': return state.clicks;
-    case 'businesses': return state.businesses.reduce((total, b) => total + b.owned, 0);
-    case 'investments': return Object.values(state.investments).flat().reduce((total, i) => total + i.owned, 0);
+    case 'balance': return isNaN(state.balance) ? 0 : state.balance;
+    case 'clicks': return isNaN(state.clicks) ? 0 : state.clicks;
+    case 'businesses': return state.businesses.reduce((total, b) => total + (isNaN(b.owned) ? 0 : b.owned), 0);
+    case 'investments': return Object.values(state.investments).flat().reduce((total, i) => total + (isNaN(i.owned) ? 0 : i.owned), 0);
     default: return 0;
   }
 }
@@ -1653,3 +1655,4 @@ document.addEventListener('DOMContentLoaded', initGame);
 </script>
 </body>
 </html>
+
