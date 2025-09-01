@@ -428,15 +428,11 @@
 
   <script>
   /*********************
-   * Core Game State & API
+   * Core Game State
    *********************/
   const VERSION = 5;
   const LS_KEY = "dinogame_v5_state";
   const THEME_KEY = "dinogame_v5_theme";
-
-  // API Configuration
-  const API_BASE = 'http://147.45.214.56:3000/api';
- // CHANGE THIS TO YOUR SERVER URL
 
   // Tunable economy constants
   const ECON = {
@@ -470,7 +466,7 @@
     xpNext: 150,
     theme: "dark",
     lastTick: Date.now(),
-    isGuest: false,
+    isInTelegram: false,
     saveInProgress: false,
     leaderboard: []
   };
@@ -490,152 +486,95 @@
   const $mobileAvatar = () => document.getElementById("mobile-avatar");
 
   /*********************
-   * API Functions
+   * Storage Functions (Cloud or Local)
    *********************/
-  async function apiCall(endpoint, options = {}) {
-    try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers
-        },
-        ...options
+  function isInTelegram() {
+    return window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe.user;
+  }
+
+  function supportsCloudStorage() {
+    return Telegram.WebApp.isVersionAtLeast('6.4');
+  }
+
+  function loadFromStorage(callback) {
+    if (state.isInTelegram && supportsCloudStorage()) {
+      Telegram.WebApp.CloudStorage.getItem(LS_KEY, (err, value) => {
+        callback(err ? null : value);
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('API call failed:', error);
-      throw error;
+    } else {
+      const raw = localStorage.getItem(LS_KEY);
+      callback(raw);
     }
   }
 
-  async function initUser() {
-    try {
-      let userData = {};
-
-      // Check if running in Telegram
-      if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe.user) {
-        const tgUser = Telegram.WebApp.initDataUnsafe.user;
-        userData = {
-          telegram_id: tgUser.id,
-          username: tgUser.username || 'DinoUser',
-          first_name: tgUser.first_name || 'Dino',
-          last_name: tgUser.last_name || '',
-          avatar_url: tgUser.photo_url || "https://i.pravatar.cc/150?img=10",
-          is_guest: false
-        };
-        state.isGuest = false;
-      } else {
-        // Guest mode
-        userData = { is_guest: true };
-        state.isGuest = true;
-      }
-
-      const result = await apiCall('/user', {
-        method: 'POST',
-        body: JSON.stringify(userData)
-      });
-
-      if (result.success) {
-        updateStateFromUser(result.user);
-        toast('Аккаунт загружен!');
-        return result.user;
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      console.error('Failed to initialize user:', error);
-      state.isGuest = true;
-      toast('Работаем в гостевом режиме', 'error');
-      return null;
-    }
-  }
-
-  function updateStateFromUser(user) {
-    if (!user) return;
-
-    state.user = { ...state.user, ...user };
-    state.balance = user.balance || state.balance;
-    state.stars = user.stars || state.stars;
-    state.ton = user.ton || state.ton;
-    state.perClick = user.per_click || state.perClick;
-    state.clickUpgradeCost = user.click_upgrade_cost || state.clickUpgradeCost;
-    state.clicks = user.clicks || state.clicks;
-    state.level = user.level || state.level;
-    state.xp = user.xp || state.xp;
-    state.xpNext = user.xp_next || state.xpNext;
-  }
-
-  async function saveUserData() {
-    if (state.isGuest || state.saveInProgress || !state.user.id) return;
-
+  function saveToStorage(data) {
+    if (state.saveInProgress) return;
     state.saveInProgress = true;
-
-    try {
-      const result = await apiCall(`/user/${state.user.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          balance: state.balance,
-          stars: state.stars,
-          ton: state.ton,
-          per_click: state.perClick,
-          click_upgrade_cost: state.clickUpgradeCost,
-          clicks: state.clicks,
-          level: state.level,
-          xp: state.xp,
-          xp_next: state.xpNext
-        })
+    const strData = JSON.stringify(data);
+    if (state.isInTelegram && supportsCloudStorage()) {
+      Telegram.WebApp.CloudStorage.setItem(LS_KEY, strData, (err, success) => {
+        state.saveInProgress = false;
+        if (!success) console.error('Cloud save failed:', err);
       });
-
-      if (!result.success) {
-        console.error('Failed to save user data:', result.error);
-      }
-    } catch (error) {
-      console.error('Error saving user data:', error);
-    } finally {
+    } else {
+      localStorage.setItem(LS_KEY, strData);
       state.saveInProgress = false;
     }
   }
 
-  async function saveUserProfile() {
-    if (state.isGuest || !state.user.id) return;
-
-    try {
-      const result = await apiCall(`/user/${state.user.id}/profile`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          first_name: state.user.first_name,
-          last_name: state.user.last_name,
-          bio: state.user.bio,
-          telegram_channel: state.user.telegram_channel,
-          show_username: state.user.show_username,
-          avatar_url: state.user.avatar_url
-        })
+  function loadTheme() {
+    if (state.isInTelegram && supportsCloudStorage()) {
+      Telegram.WebApp.CloudStorage.getItem(THEME_KEY, (err, value) => {
+        if (value) state.theme = value;
       });
-
-      if (result.success) {
-        toast('Профиль обновлен!');
-      }
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      toast('Ошибка сохранения профиля', 'error');
+    } else {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme) state.theme = savedTheme;
     }
   }
 
-  async function loadLeaderboard(type = 'balance') {
-    try {
-      const result = await apiCall(`/leaderboard?type=${type}&limit=10`);
-      if (result.success) {
-        state.leaderboard = result.leaderboard;
-        renderIfTab("dinonet", renderDinoNet);
-      }
-    } catch (error) {
-      console.error('Error loading leaderboard:', error);
+  function saveTheme() {
+    if (state.isInTelegram && supportsCloudStorage()) {
+      Telegram.WebApp.CloudStorage.setItem(THEME_KEY, state.theme, (err, success) => {});
+    } else {
+      localStorage.setItem(THEME_KEY, state.theme);
     }
+  }
+
+  /*********************
+   * Init User
+   *********************/
+  function initUser() {
+    state.isInTelegram = isInTelegram();
+    let userData = {};
+
+    if (state.isInTelegram) {
+      const tgUser = Telegram.WebApp.initDataUnsafe.user;
+      userData = {
+        telegram_id: tgUser.id,
+        username: tgUser.username || 'DinoUser',
+        first_name: tgUser.first_name || 'Dino',
+        last_name: tgUser.last_name || '',
+        avatar_url: tgUser.photo_url || "https://i.pravatar.cc/150?img=10"
+      };
+    }
+
+    state.user = { ...state.user, ...userData };
+    toast('Аккаунт загружен!');
+  }
+
+  function saveUserData() {
+    saveToStorage(state);
+  }
+
+  function saveUserProfile() {
+    saveUserData();
+  }
+
+  function loadLeaderboard() {
+    // Stub: No server, no global leaderboard
+    state.leaderboard = [];
+    renderIfTab("dinonet", renderDinoNet);
   }
 
   /*********************
@@ -656,33 +595,25 @@
   const now = () => Date.now();
 
   function save() {
-    // Save to localStorage for offline use
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-    localStorage.setItem(THEME_KEY, state.theme);
-
-    // Auto-save to server every 5 seconds
-    saveUserData();
+    saveToStorage(state);
+    saveTheme();
   }
 
-  function load() {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed.version < VERSION) {
-        Object.assign(state, parsed);
-        state.version = VERSION;
-      } else {
-        Object.assign(state, parsed);
-      }
-    } catch(_) {}
+  function load(callback) {
+    loadTheme();
+    document.body.classList.remove("dark", "light");
+    document.body.classList.add(state.theme);
 
-    const savedTheme = localStorage.getItem(THEME_KEY);
-    if (savedTheme) {
-      state.theme = savedTheme;
-      document.body.classList.remove("dark", "light");
-      document.body.classList.add(savedTheme);
-    }
+    loadFromStorage((raw) => {
+      if (!raw) return callback();
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.version === VERSION) {
+          Object.assign(state, parsed);
+        }
+      } catch(e) {}
+      callback();
+    });
   }
 
   function toast(text, type="ok") {
@@ -724,7 +655,7 @@
     state.theme = state.theme === "dark" ? "light" : "dark";
     document.body.classList.remove("dark", "light");
     document.body.classList.add(state.theme);
-    save();
+    saveTheme();
     renderIfTab("profile", renderProfile);
   }
 
@@ -745,6 +676,8 @@
       toast(`Уровень повышен! Теперь вы ${state.level} уровня`);
       updateLevel();
       save();
+      // Опционально: Отправить сигнал в бота (закроет app!)
+      // if (state.isInTelegram) Telegram.WebApp.sendData(`Level up: ${state.level}`);
     }
 
     requestAnimationFrame(tick);
@@ -818,7 +751,6 @@
             </button>
           </div>
           <div class="text-xs text-darkMuted">Всего кликов: ${state.clicks}</div>
-          ${state.isGuest ? '<div class="text-xs text-yellow-400 mt-2"><i class="fa-solid fa-exclamation-triangle mr-1"></i>Гостевой режим - прогресс не сохраняется</div>' : ''}
         </div>
 
         <div id="click-area" class="card p-8 text-center active:scale-[.995] transition cursor-pointer relative overflow-hidden">
@@ -891,7 +823,7 @@
 
   function setDinoNetTab(t){
     dinonetTab=t;
-    if (t === 'leaders') loadLeaderboard();
+    if (t === 'leaders') state.leaderboard = []; // No server
     renderDinoNet();
   }
 
@@ -912,44 +844,12 @@
   }
 
   function leadersPanelHTML() {
-    if (state.leaderboard.length === 0) {
-      return `
-        <div class="space-y-4">
-          <div class="text-center py-10">
-            <i class="fa-solid fa-trophy text-4xl text-darkMuted mb-3"></i>
-            <p>Загружаем лидеров...</p>
-          </div>
-        </div>
-      `;
-    }
-
     return `
       <div class="space-y-4">
-        <div class="flex gap-2 mb-4">
-          <button class="px-3 py-1 rounded-lg bg-darkPrimary text-white text-sm" onclick="loadLeaderboard('balance')">
-            💰 По балансу
-          </button>
-          <button class="px-3 py-1 rounded-lg bg-darkCard text-darkMuted text-sm" onclick="loadLeaderboard('level')">
-            🎯 По уровню
-          </button>
-          <button class="px-3 py-1 rounded-lg bg-darkCard text-darkMuted text-sm" onclick="loadLeaderboard('clicks')">
-            👆 По кликам
-          </button>
+        <div class="text-center py-10">
+          <i class="fa-solid fa-trophy text-4xl text-darkMuted mb-3"></i>
+          <p>Лидерборд доступен только в полной версии (требует сервера)</p>
         </div>
-        ${state.leaderboard.map((user, index) => `
-          <div class="card p-4 flex items-center">
-            <div class="text-2xl font-bold mr-4 ${index < 3 ? 'text-darkSecondary' : 'text-darkMuted'}">#${index + 1}</div>
-            <img src="${user.avatar_url}" class="w-10 h-10 rounded-full mr-3">
-            <div class="flex-grow">
-              <div class="font-bold">${user.name}</div>
-              <div class="text-sm text-darkMuted">@${user.username}</div>
-            </div>
-            <div class="text-right">
-              <div class="font-bold text-darkPrimary">${fmt(user.balance)} DINO</div>
-              <div class="text-xs text-darkMuted">Ур. ${user.level} • ${fmt(user.clicks)} кликов</div>
-            </div>
-          </div>
-        `).join('')}
       </div>
     `;
   }
@@ -1079,9 +979,9 @@
    * Profile
    *********************/
   function renderProfile() {
-    const connectionStatus = state.isGuest ?
-      '<div class="bg-yellow-500/20 border border-yellow-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-exclamation-triangle text-yellow-400 mr-2"></i>Гостевой режим - данные не сохраняются на сервере</div>' :
-      '<div class="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-check-circle text-green-400 mr-2"></i>Подключен к серверу</div>';
+    const connectionStatus = state.isInTelegram ? 
+      '<div class="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-check-circle text-green-400 mr-2"></i>Подключен к Telegram Cloud</div>' :
+      '<div class="bg-yellow-500/20 border border-yellow-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-exclamation-triangle text-yellow-400 mr-2"></i>Локальный режим - данные не синхронизируются</div>';
 
     $content().innerHTML = `
       <section class="space-y-6">
@@ -1143,16 +1043,32 @@
               <span>XP</span>
               <span class="font-bold">${fmt(state.xp)} / ${state.xpNext}</span>
             </div>
+            ${state.isInTelegram ? `
+              <button class="w-full py-3 rounded-xl bg-darkSecondary hover:opacity-90 text-darkBg font-medium" onclick="sendReportToBot()">
+                Отправить отчёт в бота (закроет app)
+              </button>
+            ` : ''}
           </div>
         </div>
       </section>
     `;
   }
 
+  function sendReportToBot() {
+    if (!state.isInTelegram) return;
+    const report = {
+      balance: state.balance,
+      level: state.level,
+      clicks: state.clicks,
+      stars: state.stars,
+      ton: state.ton
+    };
+    Telegram.WebApp.sendData(JSON.stringify(report));
+  }
+
   function toggleShowUsername() {
     state.user.show_username = !state.user.show_username;
     save();
-    saveUserProfile();
     renderProfile();
   }
 
@@ -1226,7 +1142,6 @@
     renderProfile();
     updateHeader();
     save();
-    saveUserProfile();
   }
 
   /*********************
@@ -1238,38 +1153,29 @@
       $content().innerHTML = '<div class="text-center py-20"><i class="fa-solid fa-spinner fa-spin text-4xl text-darkPrimary mb-4"></i><p>Загружаем игру...</p></div>';
     }
 
-    // Load local state first
-    load();
-    document.body.classList.add(state.theme);
+    // Load state
+    load(() => {
+      initUser();
 
-    // Initialize user (from Telegram or as guest)
-    await initUser();
+      // Set up navigation
+      document.querySelectorAll("[data-tab]").forEach(b =>
+        b.addEventListener("click", (e) => setTab(e.currentTarget.dataset.tab))
+      );
 
-    // Set up navigation
-    document.querySelectorAll("[data-tab]").forEach(b =>
-      b.addEventListener("click", (e) => setTab(e.currentTarget.dataset.tab))
-    );
+      // Start the game
+      setTab(state.currentTab);
+      updateHeader();
+      updateLevel();
+      tick();
 
-    // Start the game
-    setTab(state.currentTab);
-    updateHeader();
-    updateLevel();
-    tick();
+      // Auto-save every 5 seconds
+      setInterval(saveUserData, 5000);
 
-    // Auto-save every 5 seconds
-    setInterval(() => {
-      if (!state.isGuest && state.user.id) {
-        saveUserData();
-      }
-    }, 5000);
-
-    toast('🦖 Добро пожаловать в DINO Game!');
+      toast('🦖 Добро пожаловать в DINO Game!');
+    });
   }
 
   init();
   </script>
 </body>
 </html>
-
-
-
