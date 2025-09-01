@@ -1,497 +1,1271 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DINOGAM - Коин система</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-        
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #FFD700, #FFA500);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .balance {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-        
-        .balance-amount {
-            font-size: 32px;
-            font-weight: bold;
-            color: #FFD700;
-        }
-        
-        .tap-button {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
-            border: none;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px auto;
-            display: block;
-            cursor: pointer;
-            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .tap-button:active {
-            transform: scale(0.95);
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
-        }
-        
-        .create-coin-btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            border: none;
-            border-radius: 10px;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-        }
-        
-        .create-coin-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
-        }
-        
-        .coins-section {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .section-title {
-            font-size: 20px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .coin-item {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .coin-info {
-            flex: 1;
-        }
-        
-        .coin-name {
-            font-weight: bold;
-            font-size: 16px;
-        }
-        
-        .coin-symbol {
-            color: #FFD700;
-            font-size: 14px;
-        }
-        
-        .coin-price {
-            color: #90EE90;
-            font-size: 14px;
-        }
-        
-        .coin-supply {
-            color: #DDD;
-            font-size: 12px;
-        }
-        
-        .buy-section {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .buy-input {
-            width: 60px;
-            padding: 5px;
-            border: none;
-            border-radius: 5px;
-            text-align: center;
-        }
-        
-        .buy-btn {
-            padding: 8px 12px;
-            background: linear-gradient(45deg, #2196F3, #21CBF3);
-            border: none;
-            border-radius: 5px;
-            color: white;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .status {
-            text-align: center;
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        
-        .status.success {
-            background: rgba(76, 175, 80, 0.2);
-            color: #90EE90;
-        }
-        
-        .status.error {
-            background: rgba(244, 67, 54, 0.2);
-            color: #FF8A80;
-        }
-        
-        .status.info {
-            background: rgba(33, 150, 243, 0.2);
-            color: #81D4FA;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-        }
-        
-        .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 3px solid #fff;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .tap-effect {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.6);
-            pointer-events: none;
-            animation: tap-ripple 0.6s ease-out;
-        }
-        
-        @keyframes tap-ripple {
-            0% {
-                width: 0;
-                height: 0;
-                opacity: 1;
-            }
-            100% {
-                width: 100px;
-                height: 100px;
-                opacity: 0;
-            }
-        }
-        
-        .my-coins {
-            margin-top: 20px;
-        }
-        
-        .my-coin-item {
-            background: rgba(255, 215, 0, 0.1);
-            border: 1px solid rgba(255, 215, 0, 0.3);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🦕 DINOGAM</h1>
-            <p>Создавай коины • Торгуй • Зарабатывай</p>
-        </div>
-        
-        <div class="balance">
-            <div>Ваш баланс</div>
-            <div class="balance-amount" id="balance">0</div>
-            <div>монет</div>
-        </div>
-        
-        <button class="tap-button" id="tapButton">
-            🦕<br>ТАП
-        </button>
-        
-        <button class="create-coin-btn" id="createCoinBtn">
-            🪙 Создать свой коин
-        </button>
-        
-        <div id="status"></div>
-        
-        <div class="coins-section">
-            <h3 class="section-title">🏪 Все коины</h3>
-            <div id="allCoins">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Загрузка коинов...
-                </div>
-            </div>
-        </div>
-        
-        <div class="coins-section my-coins">
-            <h3 class="section-title">💎 Мои коины</h3>
-            <div id="myCoins">
-                <p style="text-align: center; opacity: 0.7;">У вас пока нет коинов</p>
-            </div>
-        </div>
-    </div>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DINO Game v2 — Бизнес, Крипта, ДиноНет</title>
 
-    <script>
-        // Telegram Web App инициализация
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-        
-        // Получаем ID пользователя
-        const userId = tg.initDataUnsafe?.user?.id || 12345; // тестовый ID
-        
-        // Подключение к серверу
-        const SERVER_URL = 'ws://localhost:3001'; // Замени на свой сервер
-        const socket = io(SERVER_URL);
-        
-        // Элементы
-        const balanceEl = document.getElementById('balance');
-        const tapButton = document.getElementById('tapButton');
-        const createCoinBtn = document.getElementById('createCoinBtn');
-        const statusEl = document.getElementById('status');
-        const allCoinsEl = document.getElementById('allCoins');
-        const myCoinsEl = document.getElementById('myCoins');
-        
-        // Данные пользователя
-        let userData = {
-            balance: 0,
-            coins_created: [],
-            coins_owned: new Map()
+  <!-- Icons & Tailwind -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            // Dark theme colors
+            darkBg: "#0f1117",
+            darkBgLight: "#1a1d26",
+            darkCard: "#1d212c",
+            darkCardHover: "#232734",
+            darkPrimary: "#10b981",
+            darkPrimaryHover: "#059669",
+            darkSecondary: "#facc15",
+            darkDanger: "#ef4444",
+            darkMuted: "#94a3b8",
+            darkBorder: "#2d323d",
+
+            // Light theme colors optimized
+            lightBg: "#f0f4f8",
+            lightBgLight: "#ffffff",
+            lightCard: "#ffffff",
+            lightCardHover: "#e5e7eb",
+            lightPrimary: "#047857",
+            lightPrimaryHover: "#03543f",
+            lightSecondary: "#d97706",
+            lightDanger: "#b91c1c",
+            lightMuted: "#4b5563",
+            lightBorder: "#d1d5db"
+          },
+          boxShadow: {
+            dino: "0 10px 30px rgba(16,185,129,.15)",
+            card: "0 8px 25px rgba(0,0,0,.3)",
+            glow: "0 0 15px rgba(16,185,129,.3)"
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'bounce-subtle': 'bounce 1s infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    body.dark {
+      background-color: #0f1117;
+      color: #f8fafc;
+    }
+
+    body.light {
+      background-color: #f0f4f8;
+      color: #1f2937;
+    }
+
+    .gradient-bg {
+      background: linear-gradient(135deg, #0f1117 0%, #1a1d26 100%);
+    }
+
+    .dino-gradient-text {
+      background: linear-gradient(90deg, #10b981, #facc15);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav-btn.active {
+      color: #facc15;
+      position: relative;
+    }
+
+    .nav-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24px;
+      height: 3px;
+      background: #facc15;
+      border-radius: 3px;
+    }
+
+    .tab-btn.active {
+      background: #10b981;
+      color: #fff;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card {
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .dark .card {
+      background: #1d212c;
+      border: 1px solid #2d323d;
+    }
+
+    .light .card {
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
+
+    .dark .card:hover {
+      box-shadow: 0 8px 25px rgba(0,0,0,.2);
+      border-color: rgba(16,185,129,.2);
+    }
+
+    .light .card:hover {
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+      border-color: rgba(16,185,129,.2);
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .dark .pill {
+      background: rgba(16,185,129,.15);
+      color: #10b981;
+    }
+
+    .light .pill {
+      background: rgba(16,185,129,.1);
+      color: #047857;
+    }
+
+    .fade-in {
+      animation: fadein 0.25s ease-out;
+    }
+
+    .slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .coin-pop {
+      animation: coinPop 0.6s ease-out forwards;
+    }
+
+    .progress-bar {
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    .dark .progress-bar {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .light .progress-bar {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      border-radius: 10px;
+      transition: width 0.5s ease;
+    }
+
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes coinPop {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      50% { opacity: 0.8; transform: translateY(-30px) scale(1.1); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1); }
+    }
+
+    /* Desktop specific styles */
+    @media (min-width: 768px) {
+      .desktop-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .desktop-sidebar {
+        width: 260px;
+        flex-shrink: 0;
+      }
+
+      .desktop-content {
+        flex-grow: 1;
+        margin-left: 20px;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+    }
+
+    /* Mobile specific styles */
+    @media (max-width: 767px) {
+      .mobile-tab-content {
+        padding-bottom: 80px;
+      }
+
+      .mobile-bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        backdrop-filter: blur(10px);
+      }
+
+      .dark .mobile-bottom-nav {
+        background: rgba(29, 33, 44, 0.9);
+        border-top: 1px solid #2d323d;
+      }
+
+      .light .mobile-bottom-nav {
+        background: rgba(255, 255, 255, 0.9);
+        border-top: 1px solid #d1d5db;
+      }
+
+      textarea {
+        max-height: 100px;
+        overflow-y: auto;
+        word-break: break-word;
+      }
+
+      .post-text {
+        overflow: hidden;
+        max-height: 100px;
+        text-overflow: ellipsis;
+      }
+
+      .post-expanded .post-text {
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-screen dark"> <!-- Default dark theme -->
+  <!-- Desktop Layout -->
+  <div class="hidden md:flex desktop-container min-h-screen">
+    <!-- Sidebar -->
+    <aside class="desktop-sidebar glass rounded-2xl p-6 h-fit sticky top-6">
+      <div class="flex items-center mb-8">
+        <div class="w-14 h-14 rounded-full bg-darkCard flex items-center justify-center mr-3 border border-darkBorder">
+          <i class="fa-solid fa-dragon text-darkPrimary text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold">DINO Game</h1>
+          <p class="text-darkMuted text-sm">v2.0</p>
+        </div>
+      </div>
+
+      <div class="mb-6 p-4 rounded-xl bg-darkCard">
+        <div class="text-center mb-2">
+          <div class="text-2xl font-bold"><span id="desktop-balance">0</span> DINO</div>
+        </div>
+        <div class="text-center mb-2">
+          <div class="text-lg font-bold text-darkSecondary"><span id="desktop-stars">0</span> ⭐</div>
+        </div>
+        <div class="text-center">
+          <div class="text-lg font-bold text-darkPrimary"><span id="desktop-ton">0</span> TON</div>
+        </div>
+        <div class="text-center mt-2">
+          <div class="text-lg font-bold text-darkPrimary"><span id="desktop-dps">0</span> DINO / сек</div>
+        </div>
+      </div>
+
+      <nav class="space-y-2">
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="clicker">
+          <i class="fa-regular fa-hand-pointer text-lg w-6 mr-3"></i>
+          <span>Кликер</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="dinonet">
+          <i class="fa-solid fa-globe text-lg w-6 mr-3"></i>
+          <span>ДиноНет</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="business">
+          <i class="fa-solid fa-building text-lg w-6 mr-3"></i>
+          <span>Бизнес</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="investments">
+          <i class="fa-solid fa-chart-line text-lg w-6 mr-3"></i>
+          <span>Инвестиции</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="profile">
+          <i class="fa-regular fa-user text-lg w-6 mr-3"></i>
+          <span>Профиль</span>
+        </button>
+      </nav>
+
+      <div class="mt-8 p-4 rounded-xl bg-darkCard">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-darkMuted">Уровень</span>
+          <span class="font-bold" id="desktop-level">1</span>
+        </div>
+        <div class="progress-bar h-2 w-full mb-1">
+          <div class="progress-fill" id="desktop-xp-bar" style="width: 0%"></div>
+        </div>
+        <div class="text-xs text-darkMuted text-right" id="desktop-xp-text">0/150 XP</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="desktop-content">
+      <div id="desktop-content" class="min-h-screen"></div>
+    </main>
+  </div>
+
+  <!-- Mobile Layout -->
+  <div class="md:hidden">
+    <!-- Header -->
+    <header class="glass p-4 sticky top-0 z-40 border-b border-darkBorder">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <img id="mobile-avatar" src="https://i.pravatar.cc/150?img=10" class="w-10 h-10 rounded-full mr-3">
+          <div>
+            <div class="font-bold"><span id="mobile-username">DinoUser</span></div>
+            <div class="text-xs text-darkMuted"><span id="mobile-balance">0</span> DINO</div>
+            <div class="text-xs text-darkSecondary"><span id="mobile-stars">0</span> ⭐</div>
+            <div class="text-xs text-darkPrimary"><span id="mobile-ton">0</span> TON</div>
+            <div class="text-xs text-darkMuted"><span id="mobile-dps">0</span>/сек</div>
+          </div>
+        </div>
+        <div class="flex items-center">
+          <div class="mr-3 text-right">
+            <div class="text-xs text-darkMuted">Ур. <span id="mobile-level">1</span></div>
+            <div class="text-xs text-darkPrimary" id="mobile-xp-text">0/150</div>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-darkCard flex items-center justify-center">
+            <i class="fa-regular fa-user text-sm"></i>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main id="mobile-content" class="mobile-tab-content p-4 pb-20"></main>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-bottom-nav p-2 grid grid-cols-5 gap-1">
+      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="clicker">
+        <i class="fa-regular fa-hand-pointer text-lg mb-1"></i>
+        <span class="text-xs">Кликер</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="dinonet">
+        <i class="fa-solid fa-globe text-lg mb-1"></i>
+        <span class="text-xs">ДиноНет</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="business">
+        <i class="fa-solid fa-building text-lg mb-1"></i>
+        <span class="text-xs">Бизнес</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="investments">
+        <i class="fa-solid fa-chart-line text-lg mb-1"></i>
+        <span class="text-xs">Инвестиции</span>
+      </button>
+      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="profile">
+        <i class="fa-regular fa-user text-lg mb-1"></i>
+        <span class="text-xs">Профиль</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Modals / notifications -->
+  <div id="modal-root"></div>
+  <div id="toast-root" class="fixed top-3 right-3 space-y-2 z-[999] max-w-xs"></div>
+
+  <script>
+  /*********************
+   * Core Game State & API
+   *********************/
+  const VERSION = 5;
+  const LS_KEY = "dinogame_v5_state";
+  const THEME_KEY = "dinogame_v5_theme";
+
+  // API Configuration
+  const API_BASE = 'http://147.45.214.56:3000/api';
+
+  // Tunable economy constants
+  const ECON = {
+    CLICK_INC: 1.5,
+    CLICK_COST_MULT: 1.6,
+  };
+
+  const state = {
+    version: VERSION,
+    currentTab: "clicker",
+    balance: 1000,
+    dps: 0,
+    stars: 100,
+    ton: 1.0,
+    perClick: 2,
+    clickUpgradeCost: 200,
+    user: {
+      id: null,
+      telegram_id: null,
+      username: "DinoUser",
+      first_name: "Dino",
+      last_name: "Player",
+      avatar_url: "https://i.pravatar.cc/150?img=10",
+      bio: "Любитель динозавров и кликеров.",
+      telegram_channel: "",
+      show_username: true
+    },
+    clicks: 0,
+    level: 1,
+    xp: 0,
+    xpNext: 150,
+    theme: "dark",
+    lastTick: Date.now(),
+    isGuest: false,
+    saveInProgress: false,
+    leaderboard: []
+  };
+
+  // Elements
+  const $content = () => document.getElementById(isMobile() ? "mobile-content" : "desktop-content");
+  const $balance = () => document.getElementById(isMobile() ? "mobile-balance" : "desktop-balance");
+  const $stars = () => document.getElementById(isMobile() ? "mobile-stars" : "desktop-stars");
+  const $ton = () => document.getElementById(isMobile() ? "mobile-ton" : "desktop-ton");
+  const $dps = () => document.getElementById(isMobile() ? "mobile-dps" : "desktop-dps");
+  const $level = () => document.getElementById(isMobile() ? "mobile-level" : "desktop-level");
+  const $xpText = () => document.getElementById(isMobile() ? "mobile-xp-text" : "desktop-xp-text");
+  const $xpBar = () => document.getElementById("desktop-xp-bar");
+  const $modal = () => document.getElementById("modal-root");
+  const $toast = () => document.getElementById("toast-root");
+  const $mobileUsername = () => document.getElementById("mobile-username");
+  const $mobileAvatar = () => document.getElementById("mobile-avatar");
+
+  /*********************
+   * API Functions
+   *********************/
+  async function apiCall(endpoint, options = {}) {
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        },
+        ...options
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('API call failed:', error);
+      throw error;
+    }
+  }
+
+  async function initUser() {
+    try {
+      let userData = {};
+
+      // Check if running in Telegram
+      if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe.user) {
+        const tgUser = Telegram.WebApp.initDataUnsafe.user;
+        userData = {
+          telegram_id: tgUser.id,
+          username: tgUser.username || 'DinoUser',
+          first_name: tgUser.first_name || 'Dino',
+          last_name: tgUser.last_name || '',
+          avatar_url: tgUser.photo_url || "https://i.pravatar.cc/150?img=10",
+          is_guest: false
         };
-        
-        let allCoins = [];
-        let tapCount = 0;
-        
-        // Подключение к серверу
-        socket.on('connect', () => {
-            console.log('Подключено к серверу');
-            socket.emit('register_user', userId);
-            showStatus('Подключено к серверу', 'success');
-        });
-        
-        socket.on('disconnect', () => {
-            showStatus('Соединение потеряно', 'error');
-        });
-        
-        // Получение данных пользователя
-        socket.on('user_data', (data) => {
-            userData = data;
-            updateBalance();
-            updateMyCoins();
-        });
-        
-        // Получение всех коинов
-        socket.on('all_coins', (coins) => {
-            allCoins = coins;
-            updateAllCoins();
-        });
-        
-        // Успешное создание коина
-        socket.on('coin_creation_started', () => {
-            showStatus('Проверьте телеграм! Бот поможет создать коин', 'info');
-        });
-        
-        // Успешная покупка
-        socket.on('purchase_success', (data) => {
-            showStatus(`Куплено ${data.amount} ${data.coin}!`, 'success');
-        });
-        
-        // Ошибки
-        socket.on('error', (message) => {
-            showStatus(message, 'error');
-        });
-        
-        // Обработчики событий
-        tapButton.addEventListener('click', (e) => {
-            // Эффект тапа
-            const rect = tapButton.getBoundingClientRect();
-            const x = e.clientX - rect.left - 50;
-            const y = e.clientY - rect.top - 50;
-            
-            const ripple = document.createElement('div');
-            ripple.className = 'tap-effect';
-            ripple.style.left = x + 'px';
-            ripple.style.top = y + 'px';
-            tapButton.appendChild(ripple);
-            
-            setTimeout(() => ripple.remove(), 600);
-            
-            // Увеличиваем баланс
-            tapCount++;
-            userData.balance += 1;
-            updateBalance();
-            
-            // Анимация кнопки
-            tapButton.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                tapButton.style.transform = 'scale(1)';
-            }, 150);
-        });
-        
-        createCoinBtn.addEventListener('click', () => {
-            socket.emit('create_coin', { userId });
-            createCoinBtn.disabled = true;
-            createCoinBtn.textContent = 'Создание коина...';
-            
-            setTimeout(() => {
-                createCoinBtn.disabled = false;
-                createCoinBtn.textContent = '🪙 Создать свой коин';
-            }, 5000);
-        });
-        
-        // Функции обновления UI
-        function updateBalance() {
-            balanceEl.textContent = Math.floor(userData.balance).toLocaleString();
-        }
-        
-        function updateAllCoins() {
-            if (allCoins.length === 0) {
-                allCoinsEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">Коинов пока нет</p>';
-                return;
-            }
-            
-            allCoinsEl.innerHTML = allCoins.map(coin => `
-                <div class="coin-item">
-                    <div class="coin-info">
-                        <div class="coin-name">${coin.name}</div>
-                        <div class="coin-symbol">${coin.symbol}</div>
-                        <div class="coin-price">${coin.price} монет за штуку</div>
-                        <div class="coin-supply">${coin.current_supply}/${coin.total_supply} в обращении</div>
-                    </div>
-                    <div class="buy-section">
-                        <input type="number" min="1" max="100" value="1" class="buy-input" id="amount_${coin.id}">
-                        <button class="buy-btn" onclick="buyCoin('${coin.id}')">Купить</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        function updateMyCoins() {
-            if (userData.coins_created.length === 0 && (!userData.coins_owned || userData.coins_owned.size === 0)) {
-                myCoinsEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">У вас пока нет коинов</p>';
-                return;
-            }
-            
-            let html = '';
-            
-            // Созданные коины
-            userData.coins_created.forEach(coinId => {
-                const coin = allCoins.find(c => c.id === coinId);
-                if (coin) {
-                    html += `
-                        <div class="coin-item my-coin-item">
-                            <div class="coin-info">
-                                <div class="coin-name">👑 ${coin.name} (создатель)</div>
-                                <div class="coin-symbol">${coin.symbol}</div>
-                                <div class="coin-price">${coin.price} монет за штуку</div>
-                                <div class="coin-supply">${coin.current_supply}/${coin.total_supply} продано</div>
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-            
-            // Купленные коины
-            if (userData.coins_owned instanceof Map) {
-                userData.coins_owned.forEach((amount, coinId) => {
-                    const coin = allCoins.find(c => c.id === coinId);
-                    if (coin && amount > 0) {
-                        html += `
-                            <div class="coin-item">
-                                <div class="coin-info">
-                                    <div class="coin-name">${coin.name}</div>
-                                    <div class="coin-symbol">${coin.symbol}</div>
-                                    <div class="coin-price">У вас: ${amount} шт.</div>
-                                    <div class="coin-supply">Стоимость: ${(amount * coin.price).toFixed(2)} монет</div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
-            }
-            
-            myCoinsEl.innerHTML = html || '<p style="text-align: center; opacity: 0.7;">У вас пока нет коинов</p>';
-        }
-        
-        function buyCoin(coinId) {
-            const amountInput = document.getElementById(`amount_${coinId}`);
-            const amount = parseInt(amountInput.value);
-            
-            if (!amount || amount < 1) {
-                showStatus('Введите корректное количество', 'error');
-                return;
-            }
-            
-            socket.emit('buy_coin', {
-                userId,
-                coinId,
-                amount
-            });
-        }
-        
-        function showStatus(message, type) {
-            statusEl.innerHTML = `<div class="status ${type}">${message}</div>`;
-            setTimeout(() => {
-                statusEl.innerHTML = '';
-            }, 5000);
-        }
-        
-        // Инициализация
-        console.log('Telegram User ID:', userId);
-    </script>
+        state.isGuest = false;
+      } else {
+        // Guest mode
+        userData = { is_guest: true };
+        state.isGuest = true;
+      }
+
+      const result = await apiCall('/user', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+
+      if (result.success) {
+        updateStateFromUser(result.user);
+        toast('Аккаунт загружен!');
+        return result.user;
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to initialize user:', error);
+      state.isGuest = true;
+      toast('Работаем в гостевом режиме', 'error');
+      return null;
+    }
+  }
+
+  function updateStateFromUser(user) {
+    if (!user) return;
+
+    state.user = { ...state.user, ...user };
+    state.balance = user.balance || state.balance;
+    state.stars = user.stars || state.stars;
+    state.ton = user.ton || state.ton;
+    state.perClick = user.per_click || state.perClick;
+    state.clickUpgradeCost = user.click_upgrade_cost || state.clickUpgradeCost;
+    state.clicks = user.clicks || state.clicks;
+    state.level = user.level || state.level;
+    state.xp = user.xp || state.xp;
+    state.xpNext = user.xp_next || state.xpNext;
+  }
+
+  async function saveUserData() {
+    if (state.isGuest || state.saveInProgress || !state.user.id) return;
+
+    state.saveInProgress = true;
+
+    try {
+      const result = await apiCall(`/user/${state.user.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          balance: state.balance,
+          stars: state.stars,
+          ton: state.ton,
+          per_click: state.perClick,
+          click_upgrade_cost: state.clickUpgradeCost,
+          clicks: state.clicks,
+          level: state.level,
+          xp: state.xp,
+          xp_next: state.xpNext
+        })
+      });
+
+      if (!result.success) {
+        console.error('Failed to save user data:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving user data:', error);
+    } finally {
+      state.saveInProgress = false;
+    }
+  }
+
+  async function saveUserProfile() {
+    if (state.isGuest || !state.user.id) return;
+
+    try {
+      const result = await apiCall(`/user/${state.user.id}/profile`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          first_name: state.user.first_name,
+          last_name: state.user.last_name,
+          bio: state.user.bio,
+          telegram_channel: state.user.telegram_channel,
+          show_username: state.user.show_username,
+          avatar_url: state.user.avatar_url
+        })
+      });
+
+      if (result.success) {
+        toast('Профиль обновлен!');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast('Ошибка сохранения профиля', 'error');
+    }
+  }
+
+  async function loadLeaderboard(type = 'balance') {
+    try {
+      const result = await apiCall(`/leaderboard?type=${type}&limit=10`);
+      if (result.success) {
+        state.leaderboard = result.leaderboard;
+        renderIfTab("dinonet", renderDinoNet);
+      }
+    } catch (error) {
+      console.error('Error loading leaderboard:', error);
+    }
+  }
+
+  /*********************
+   * Utils
+   *********************/
+  function isMobile() {
+    return window.innerWidth < 768;
+  }
+
+  const uid = (p="id") => p + "_" + Math.random().toString(36).slice(2,9);
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const fmt = (n, d=2) => {
+    if (n >= 1e9) return (n/1e9).toFixed(d) + "B";
+    if (n >= 1e6) return (n/1e6).toFixed(d) + "M";
+    if (n >= 1e3) return (n/1e3).toFixed(d) + "K";
+    return Number(n).toFixed(d);
+  };
+  const now = () => Date.now();
+
+  function save() {
+    // Save to localStorage for offline use
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    localStorage.setItem(THEME_KEY, state.theme);
+
+    // Auto-save to server every 5 seconds
+    saveUserData();
+  }
+
+  function load() {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.version < VERSION) {
+        Object.assign(state, parsed);
+        state.version = VERSION;
+      } else {
+        Object.assign(state, parsed);
+      }
+    } catch(_) {}
+
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    if (savedTheme) {
+      state.theme = savedTheme;
+      document.body.classList.remove("dark", "light");
+      document.body.classList.add(savedTheme);
+    }
+  }
+
+  function toast(text, type="ok") {
+    const el = document.createElement("div");
+    el.className = `fade-in rounded-xl px-4 py-3 shadow-dino flex items-start ${type==="error"?"bg-red-500/20 border border-red-400/40":"bg-darkCard border border-darkBorder"}`;
+    el.innerHTML = `
+      <i class="fa-solid ${type==="error"?"fa-triangle-exclamation text-red-400":"fa-circle-check text-darkPrimary"} mr-2 mt-0.5"></i>
+      <div>${text}</div>
+    `;
+    $toast().appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = 0;
+      setTimeout(()=> el.remove(), 250);
+    }, 2200);
+  }
+
+  function openModal(innerHTML, onClose = () => {}) {
+    $modal().innerHTML = `
+      <div class="fixed inset-0 bg-black/70 flex items-end sm:items-center sm:justify-center z-[999] p-4">
+        <div class="bg-darkCard w-full max-w-md rounded-2xl p-5 border border-darkBorder shadow-card max-h-[90vh] overflow-y-auto relative">
+          <button onclick="closeModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-darkBgLight flex items-center justify-center hover:bg-darkCardHover">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          ${innerHTML}
+        </div>
+      </div>
+    `;
+    $modal().firstChild.addEventListener("click", (e)=>{
+      if (e.target === e.currentTarget) closeModal();
+    });
+  }
+
+  function closeModal(){ $modal().innerHTML = ""; }
+
+  /*********************
+   * Theme Toggle
+   *********************/
+  function toggleTheme() {
+    state.theme = state.theme === "dark" ? "light" : "dark";
+    document.body.classList.remove("dark", "light");
+    document.body.classList.add(state.theme);
+    save();
+    renderIfTab("profile", renderProfile);
+  }
+
+  /*********************
+   * Game Loop
+   *********************/
+  function tick() {
+    const dt = Math.max(0, Math.min(1, (now() - state.lastTick)/1000));
+    state.lastTick = now();
+    state.dps = 0;
+    state.balance += state.dps * dt;
+    updateHeader();
+
+    if (state.xp >= state.xpNext) {
+      state.level++;
+      state.xp -= state.xpNext;
+      state.xpNext = Math.round(state.xpNext * 1.5);
+      toast(`Уровень повышен! Теперь вы ${state.level} уровня`);
+      updateLevel();
+      save();
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  function updateHeader() {
+    $balance().textContent = fmt(state.balance);
+    $stars().textContent = fmt(state.stars);
+    $ton().textContent = fmt(state.ton);
+    $dps().textContent = fmt(state.dps);
+    if (isMobile()) {
+      $mobileUsername().textContent = state.user.username;
+      $mobileAvatar().src = state.user.avatar_url;
+    }
+  }
+
+  function updateLevel() {
+    $level().textContent = state.level;
+    $xpText().textContent = `${Math.floor(state.xp)}/${state.xpNext}`;
+    if ($xpBar()) $xpBar().style.width = `${(state.xp / state.xpNext) * 100}%`;
+  }
+
+  /*********************
+   * Navigation
+   *********************/
+  function setTab(tab) {
+    state.currentTab = tab;
+
+    document.querySelectorAll(".desktop-nav-btn").forEach(b => {
+      b.classList.remove("bg-darkPrimary", "text-white");
+      b.classList.add("text-darkMuted", "hover:bg-darkCardHover");
+    });
+    const desktopBtn = document.querySelector(`.desktop-nav-btn[data-tab='${tab}']`);
+    if (desktopBtn) {
+      desktopBtn.classList.remove("text-darkMuted", "hover:bg-darkCardHover");
+      desktopBtn.classList.add("bg-darkPrimary", "text-white");
+    }
+
+    document.querySelectorAll(".nav-btn").forEach(b => {
+      b.classList.remove("active", "bg-darkCardHover");
+    });
+    const mobileBtn = document.querySelector(`.nav-btn[data-tab='${tab}']`);
+    if (mobileBtn) {
+      mobileBtn.classList.add("active", "bg-darkCardHover");
+    }
+
+    if (tab === "clicker") renderClicker();
+    if (tab === "dinonet") renderDinoNet();
+    if (tab === "business") renderBusiness();
+    if (tab === "investments") renderInvestments();
+    if (tab === "profile") renderProfile();
+    save();
+  }
+
+  function renderIfTab(tab, fn){ if (state.currentTab === tab) fn(); }
+
+  /*********************
+   * Clicker
+   *********************/
+  function renderClicker() {
+    $content().innerHTML = `
+      <section class="space-y-6">
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-sm text-darkMuted">Доход за клик</div>
+              <div class="text-xl font-bold text-darkPrimary">${fmt(state.perClick)} DINO</div>
+            </div>
+            <button class="px-4 py-2.5 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium flex items-center" onclick="buyClick()">
+              <i class="fa-solid fa-arrow-up mr-2"></i>+${ECON.CLICK_INC} за ${fmt(state.clickUpgradeCost)}
+            </button>
+          </div>
+          <div class="text-xs text-darkMuted">Всего кликов: ${state.clicks}</div>
+          ${state.isGuest ? '<div class="text-xs text-yellow-400 mt-2"><i class="fa-solid fa-exclamation-triangle mr-1"></i>Гостевой режим - прогресс не сохраняется</div>' : ''}
+        </div>
+
+        <div id="click-area" class="card p-8 text-center active:scale-[.995] transition cursor-pointer relative overflow-hidden">
+          <div class="text-8xl mb-2 select-none leading-none animate-float">🦖</div>
+          <div class="text-lg font-medium mb-1">Кликай по динозавру</div>
+          <div class="text-sm text-darkMuted">Зарабатывай DINO и улучшай свою экономику</div>
+        </div>
+      </section>
+    `;
+
+    document.getElementById("click-area").addEventListener("click", (e) => {
+      const inc = state.perClick;
+      state.balance += inc;
+      state.clicks++;
+      state.xp += 0.1;
+      updateHeader();
+      updateLevel();
+
+      const coin = document.createElement("div");
+      coin.className = "coin-pop absolute text-darkSecondary font-medium z-10";
+      coin.style.left = (e.offsetX - 10) + "px";
+      coin.style.top = (e.offsetY - 10) + "px";
+      coin.textContent = `+${inc.toFixed(2)}`;
+      e.currentTarget.appendChild(coin);
+      setTimeout(() => coin.remove(), 600);
+
+      save();
+    });
+  }
+
+  function buyClick() {
+    if (state.balance < state.clickUpgradeCost) return toast("Не хватает DINO", "error");
+    state.balance -= state.clickUpgradeCost;
+    state.perClick += ECON.CLICK_INC;
+    state.clickUpgradeCost = Math.ceil(state.clickUpgradeCost * ECON.CLICK_COST_MULT);
+    state.xp += 10;
+    updateHeader();
+    updateLevel();
+    renderClicker();
+    save();
+    toast("Улучшение куплено!");
+  }
+
+  /*********************
+   * DinoNet
+   *********************/
+  let dinonetTab = "feed";
+
+  function renderDinoNet() {
+    $content().innerHTML = `
+      <section class="space-y-5">
+        <div class="card p-2">
+          <div class="grid grid-cols-3 gap-2">
+            <button class="tab-btn ${dinonetTab==='feed'?'active':''} rounded-xl py-3 font-medium" onclick="setDinoNetTab('feed')">
+              <i class="fa-solid fa-rss mr-2"></i>Лента
+            </button>
+            <button class="tab-btn ${dinonetTab==='myposts'?'active':''} rounded-xl py-3 font-medium" onclick="setDinoNetTab('myposts')">
+              <i class="fa-solid fa-file-lines mr-2"></i>Мои
+            </button>
+            <button class="tab-btn ${dinonetTab==='leaders'?'active':''} rounded-xl py-3 font-medium" onclick="setDinoNetTab('leaders')">
+              <i class="fa-solid fa-trophy mr-2"></i>Лидеры
+            </button>
+          </div>
+        </div>
+
+        ${dinonetTab==='feed' ? feedPanelHTML() : dinonetTab==='myposts' ? myPostsPanelHTML() : leadersPanelHTML()}
+      </section>
+    `;
+  }
+
+  function setDinoNetTab(t){
+    dinonetTab=t;
+    if (t === 'leaders') loadLeaderboard();
+    renderDinoNet();
+  }
+
+  function feedPanelHTML() {
+    return `
+      <div class="space-y-5">
+        <div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Постов пока нет</p></div>
+      </div>
+    `;
+  }
+
+  function myPostsPanelHTML() {
+    return `
+      <div class="space-y-4">
+        <div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Нет ваших постов</p></div>
+      </div>
+    `;
+  }
+
+  function leadersPanelHTML() {
+    if (state.leaderboard.length === 0) {
+      return `
+        <div class="space-y-4">
+          <div class="text-center py-10">
+            <i class="fa-solid fa-trophy text-4xl text-darkMuted mb-3"></i>
+            <p>Загружаем лидеров...</p>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="space-y-4">
+        <div class="flex gap-2 mb-4">
+          <button class="px-3 py-1 rounded-lg bg-darkPrimary text-white text-sm" onclick="loadLeaderboard('balance')">
+            💰 По балансу
+          </button>
+          <button class="px-3 py-1 rounded-lg bg-darkCard text-darkMuted text-sm" onclick="loadLeaderboard('level')">
+            🎯 По уровню
+          </button>
+          <button class="px-3 py-1 rounded-lg bg-darkCard text-darkMuted text-sm" onclick="loadLeaderboard('clicks')">
+            👆 По кликам
+          </button>
+        </div>
+        ${state.leaderboard.map((user, index) => `
+          <div class="card p-4 flex items-center">
+            <div class="text-2xl font-bold mr-4 ${index < 3 ? 'text-darkSecondary' : 'text-darkMuted'}">#${index + 1}</div>
+            <img src="${user.avatar_url}" class="w-10 h-10 rounded-full mr-3">
+            <div class="flex-grow">
+              <div class="font-bold">${user.name}</div>
+              <div class="text-sm text-darkMuted">@${user.username}</div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-darkPrimary">${fmt(user.balance)} DINO</div>
+              <div class="text-xs text-darkMuted">Ур. ${user.level} • ${fmt(user.clicks)} кликов</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /*********************
+   * Business
+   *********************/
+  let businessTab = "companies";
+
+  function renderBusiness() {
+    $content().innerHTML = `
+      <section class="space-y-5">
+        <div class="card p-2">
+          <div class="grid grid-cols-3 gap-2">
+            <button class="tab-btn ${businessTab==='companies'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('companies')">
+              <i class="fa-solid fa-building mr-2"></i>Бизнес
+            </button>
+            <button class="tab-btn ${businessTab==='crypto'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('crypto')">
+              <i class="fa-solid fa-coins mr-2"></i>Крипта
+            </button>
+            <button class="tab-btn ${businessTab==='referrals'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('referrals')">
+              <i class="fa-solid fa-link mr-2"></i>Рефералы
+            </button>
+          </div>
+        </div>
+
+        ${businessTab==='companies' ? companiesPanelHTML() : businessTab==='crypto' ? cryptoPanelHTML() : referralsPanelHTML()}
+      </section>
+    `;
+  }
+
+  function setBusinessTab(t){ businessTab=t; renderBusiness(); }
+
+  function companiesPanelHTML(){
+    return `
+      <div class="space-y-5">
+        <div class="text-center py-10 card"><i class="fa-regular fa-building text-4xl text-darkMuted mb-3"></i><p>Ещё нет компаний</p></div>
+      </div>
+    `;
+  }
+
+  function cryptoPanelHTML(){
+    return `
+      <div class="space-y-5">
+        <div class="text-center py-10 card"><i class="fa-regular fa-coins text-4xl text-darkMuted mb-3"></i><p>Ещё нет токенов</p></div>
+      </div>
+    `;
+  }
+
+  function referralsPanelHTML() {
+    return `
+      <div class="space-y-5">
+        <div class="card p-5">
+          <h3 class="font-semibold text-lg mb-4">Реферальная система</h3>
+          <p class="text-sm text-darkMuted mb-4">Приглашайте друзей!</p>
+          <div class="bg-darkBgLight rounded-xl p-3">
+            <div class="text-darkMuted text-sm mb-1">Приглашено</div>
+            <div class="font-semibold text-lg">0</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /*********************
+   * Investments
+   *********************/
+  let invTab = "stocks";
+
+  function renderInvestments(){
+    $content().innerHTML = `
+      <section class="space-y-5">
+        <div class="card p-2">
+          <div class="grid grid-cols-3 gap-2">
+            <button class="tab-btn ${invTab==='stocks'?'active':''} rounded-xl py-3 font-medium" onclick="setInvTab('stocks')">
+              <i class="fa-solid fa-chart-line mr-2"></i>Акции
+            </button>
+            <button class="tab-btn ${invTab==='crypto'?'active':''} rounded-xl py-3 font-medium" onclick="setInvTab('crypto')">
+              <i class="fa-solid fa-coins mr-2"></i>Крипта
+            </button>
+            <button class="tab-btn ${invTab==='wallet'?'active':''} rounded-xl py-3 font-medium" onclick="setInvTab('wallet')">
+              <i class="fa-solid fa-wallet mr-2"></i>Кошелёк
+            </button>
+          </div>
+        </div>
+
+        ${invTab==='stocks' ? stocksMarketHTML() : invTab==='crypto' ? cryptoMarketHTML() : walletHTML()}
+      </section>
+    `;
+  }
+
+  function setInvTab(t){ invTab=t; renderInvestments(); }
+
+  function stocksMarketHTML(){
+    return `
+      <div class="space-y-4">
+        <div class="card p-5 text-center py-10"><i class="fa-regular fa-building text-4xl text-darkMuted mb-3"></i><p>Нет компаний на рынке</p></div>
+      </div>
+    `;
+  }
+
+  function cryptoMarketHTML(){
+    return `
+      <div class="space-y-4">
+        <div class="card p-5 text-center py-10"><i class="fa-regular fa-coins text-4xl text-darkMuted mb-3"></i><p>Нет токенов на рынке</p></div>
+      </div>
+    `;
+  }
+
+  function walletHTML(){
+    return `
+      <div class="space-y-5">
+        <div class="card p-5">
+          <h3 class="font-semibold text-lg mb-4">Акции</h3>
+          Нет акций в портфеле
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>
+          Нет крипты в портфеле
+        </div>
+      </div>
+    `;
+  }
+
+  /*********************
+   * Profile
+   *********************/
+  function renderProfile() {
+    const connectionStatus = state.isGuest ?
+      '<div class="bg-yellow-500/20 border border-yellow-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-exclamation-triangle text-yellow-400 mr-2"></i>Гостевой режим - данные не сохраняются на сервере</div>' :
+      '<div class="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-check-circle text-green-400 mr-2"></i>Подключен к серверу</div>';
+
+    $content().innerHTML = `
+      <section class="space-y-6">
+        ${connectionStatus}
+
+        <div class="card p-5">
+          <div class="flex items-center gap-4 mb-4">
+            <img src="${state.user.avatar_url}" class="w-16 h-16 rounded-full border-2 border-darkPrimary">
+            <div>
+              <h2 class="font-bold text-xl">${state.user.first_name} ${state.user.last_name || ''}</h2>
+              <p class="text-sm text-darkMuted">@${state.user.username}</p>
+            </div>
+          </div>
+          <p class="text-sm mb-4">${state.user.bio}</p>
+          ${state.user.telegram_channel ? `<p class="text-sm text-darkPrimary">Telegram: ${state.user.telegram_channel}</p>` : ''}
+          <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="openEditProfile()">
+            Редактировать профиль
+          </button>
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-semibold mb-4">Статистика</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-darkPrimary">${fmt(state.balance)}</div>
+              <div class="text-sm text-darkMuted">DINO</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-darkSecondary">${state.level}</div>
+              <div class="text-sm text-darkMuted">Уровень</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-darkPrimary">${fmt(state.clicks)}</div>
+              <div class="text-sm text-darkMuted">Кликов</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-darkSecondary">${fmt(state.stars)}</div>
+              <div class="text-sm text-darkMuted">Звёзды</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-semibold mb-4">Настройки</h3>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <span>Тема</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder flex items-center" onclick="toggleTheme()">
+                <i class="fa-solid fa-${state.theme === 'dark' ? 'moon' : 'sun'} mr-2"></i>${state.theme === 'dark' ? 'Тёмная' : 'Светлая'}
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>Показывать username в ДиноНет</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowUsername()">
+                ${state.user.show_username ? 'Да' : 'Нет'}
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>XP</span>
+              <span class="font-bold">${fmt(state.xp)} / ${state.xpNext}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function toggleShowUsername() {
+    state.user.show_username = !state.user.show_username;
+    save();
+    saveUserProfile();
+    renderProfile();
+  }
+
+  function openEditProfile(){
+    openModal(`
+      <div class="space-y-4">
+        <h2 class="text-xl font-bold mb-2">Редактировать профиль</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Имя</label>
+            <input id="edit_first_name" value="${state.user.first_name}" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Фамилия</label>
+            <input id="edit_last_name" value="${state.user.last_name || ''}" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Био</label>
+            <textarea id="edit_bio" rows="3" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">${state.user.bio}</textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Telegram канал</label>
+            <input id="edit_tg" value="${state.user.telegram_channel}" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3" placeholder="@channel">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Аватар</label>
+            <input id="edit_avatar" type="file" accept="image/*" class="hidden">
+            <button onclick="document.getElementById('edit_avatar').click()" class="px-4 py-2 rounded-xl bg-darkPrimary text-white">Загрузить аватар</button>
+            <div id="edit_avatar_preview" class="mt-2"><img src="${state.user.avatar_url}" class="w-16 h-16 rounded-full"></div>
+          </div>
+        </div>
+        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium mt-2" onclick="saveProfile()">
+          Сохранить
+        </button>
+      </div>
+    `);
+
+    document.getElementById('edit_avatar').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          document.getElementById('edit_avatar_preview').innerHTML = `<img src="${ev.target.result}" class="w-16 h-16 rounded-full">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  function saveProfile(){
+    const photoFile = document.getElementById("edit_avatar").files[0];
+    if (photoFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        state.user.avatar_url = e.target.result;
+        finalizeSaveProfile();
+      };
+      reader.readAsDataURL(photoFile);
+      return;
+    }
+    finalizeSaveProfile();
+  }
+
+  function finalizeSaveProfile() {
+    state.user.first_name = document.getElementById("edit_first_name").value.trim();
+    state.user.last_name = document.getElementById("edit_last_name").value.trim();
+    state.user.bio = document.getElementById("edit_bio").value.trim();
+    state.user.telegram_channel = document.getElementById("edit_tg").value.trim();
+
+    closeModal();
+    renderProfile();
+    updateHeader();
+    save();
+    saveUserProfile();
+  }
+
+  /*********************
+   * Init
+   *********************/
+  async function init() {
+    // Show loading
+    if ($content()) {
+      $content().innerHTML = '<div class="text-center py-20"><i class="fa-solid fa-spinner fa-spin text-4xl text-darkPrimary mb-4"></i><p>Загружаем игру...</p></div>';
+    }
+
+    // Load local state first
+    load();
+    document.body.classList.add(state.theme);
+
+    // Initialize user (from Telegram or as guest)
+    await initUser();
+
+    // Set up navigation
+    document.querySelectorAll("[data-tab]").forEach(b =>
+      b.addEventListener("click", (e) => setTab(e.currentTarget.dataset.tab))
+    );
+
+    // Start the game
+    setTab(state.currentTab);
+    updateHeader();
+    updateLevel();
+    tick();
+
+    // Auto-save every 5 seconds
+    setInterval(() => {
+      if (!state.isGuest && state.user.id) {
+        saveUserData();
+      }
+    }, 5000);
+
+    toast('🦖 Добро пожаловать в DINO Game!');
+  }
+
+  init();
+  </script>
 </body>
 </html>
