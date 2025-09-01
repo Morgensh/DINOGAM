@@ -1,67 +1,497 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DINO Clicker</title>
-<style>
-  body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-  img { border-radius: 50%; width: 80px; margin-bottom: 20px; }
-  button { padding: 10px 20px; font-size: 18px; margin-top: 20px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DINOGAM - Коин система</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .balance {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .balance-amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+        
+        .tap-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            border: none;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px auto;
+            display: block;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tap-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .create-coin-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .create-coin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .coins-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .coin-item {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .coin-info {
+            flex: 1;
+        }
+        
+        .coin-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .coin-symbol {
+            color: #FFD700;
+            font-size: 14px;
+        }
+        
+        .coin-price {
+            color: #90EE90;
+            font-size: 14px;
+        }
+        
+        .coin-supply {
+            color: #DDD;
+            font-size: 12px;
+        }
+        
+        .buy-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .buy-input {
+            width: 60px;
+            padding: 5px;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+        }
+        
+        .buy-btn {
+            padding: 8px 12px;
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #90EE90;
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #FF8A80;
+        }
+        
+        .status.info {
+            background: rgba(33, 150, 243, 0.2);
+            color: #81D4FA;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tap-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+            animation: tap-ripple 0.6s ease-out;
+        }
+        
+        @keyframes tap-ripple {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            100% {
+                width: 100px;
+                height: 100px;
+                opacity: 0;
+            }
+        }
+        
+        .my-coins {
+            margin-top: 20px;
+        }
+        
+        .my-coin-item {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>🦕 DINOGAM</h1>
+            <p>Создавай коины • Торгуй • Зарабатывай</p>
+        </div>
+        
+        <div class="balance">
+            <div>Ваш баланс</div>
+            <div class="balance-amount" id="balance">0</div>
+            <div>монет</div>
+        </div>
+        
+        <button class="tap-button" id="tapButton">
+            🦕<br>ТАП
+        </button>
+        
+        <button class="create-coin-btn" id="createCoinBtn">
+            🪙 Создать свой коин
+        </button>
+        
+        <div id="status"></div>
+        
+        <div class="coins-section">
+            <h3 class="section-title">🏪 Все коины</h3>
+            <div id="allCoins">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Загрузка коинов...
+                </div>
+            </div>
+        </div>
+        
+        <div class="coins-section my-coins">
+            <h3 class="section-title">💎 Мои коины</h3>
+            <div id="myCoins">
+                <p style="text-align: center; opacity: 0.7;">У вас пока нет коинов</p>
+            </div>
+        </div>
+    </div>
 
-<h1 id="username">Загрузка...</h1>
-<img id="avatar" src="" alt="Avatar">
-<p>Баланс: <span id="balance">0</span></p>
-<button id="clickBtn">Клик!</button>
-
-<script>
-  const API_URL = "https://api.dino.ru"; // <- замените на ваш сервер
-  let TELEGRAM_ID = prompt("Введите ваш Telegram ID для теста:");
-  let USERNAME = prompt("Введите ваш username:");
-  let FIRST_NAME = prompt("Введите first_name:");
-  let LAST_NAME = prompt("Введите last_name:");
-  let AVATAR_URL = prompt("Введите URL аватара (или оставьте пустым):");
-
-  let user = null;
-
-  async function loadUser() {
-    try {
-      const query = `?telegram_id=${TELEGRAM_ID}&username=${USERNAME}&first_name=${FIRST_NAME}&last_name=${LAST_NAME}&avatar_url=${AVATAR_URL}`;
-      const res = await fetch(`${API_URL}/api/user${query}`);
-      const data = await res.json();
-      if(!data.success) return alert(data.error || 'Ошибка сервера');
-      user = data.user;
-
-      document.getElementById("username").innerText = user.username;
-      document.getElementById("avatar").src = user.avatar_url || "https://via.placeholder.com/80";
-      document.getElementById("balance").innerText = user.balance;
-    } catch (err) {
-      console.error(err);
-      alert("Ошибка при загрузке пользователя");
-    }
-  }
-
-  async function clickBtn() {
-    if(!user) return;
-    try {
-      // В этом прототипе мы просто увеличиваем баланс локально и обновляем на фронте
-      user.balance += user.per_click;
-      document.getElementById("balance").innerText = user.balance;
-
-      // В реальном проекте здесь можно сделать POST запрос на сервер для сохранения клика
-      // await fetch(`${API_URL}/api/click`, { method: "POST", body: JSON.stringify({ telegram_id: TELEGRAM_ID }) })
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  document.getElementById("clickBtn").addEventListener("click", clickBtn);
-
-  loadUser();
-</script>
-
+    <script>
+        // Telegram Web App инициализация
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // Получаем ID пользователя
+        const userId = tg.initDataUnsafe?.user?.id || 12345; // тестовый ID
+        
+        // Подключение к серверу
+        const SERVER_URL = 'ws://localhost:3001'; // Замени на свой сервер
+        const socket = io(SERVER_URL);
+        
+        // Элементы
+        const balanceEl = document.getElementById('balance');
+        const tapButton = document.getElementById('tapButton');
+        const createCoinBtn = document.getElementById('createCoinBtn');
+        const statusEl = document.getElementById('status');
+        const allCoinsEl = document.getElementById('allCoins');
+        const myCoinsEl = document.getElementById('myCoins');
+        
+        // Данные пользователя
+        let userData = {
+            balance: 0,
+            coins_created: [],
+            coins_owned: new Map()
+        };
+        
+        let allCoins = [];
+        let tapCount = 0;
+        
+        // Подключение к серверу
+        socket.on('connect', () => {
+            console.log('Подключено к серверу');
+            socket.emit('register_user', userId);
+            showStatus('Подключено к серверу', 'success');
+        });
+        
+        socket.on('disconnect', () => {
+            showStatus('Соединение потеряно', 'error');
+        });
+        
+        // Получение данных пользователя
+        socket.on('user_data', (data) => {
+            userData = data;
+            updateBalance();
+            updateMyCoins();
+        });
+        
+        // Получение всех коинов
+        socket.on('all_coins', (coins) => {
+            allCoins = coins;
+            updateAllCoins();
+        });
+        
+        // Успешное создание коина
+        socket.on('coin_creation_started', () => {
+            showStatus('Проверьте телеграм! Бот поможет создать коин', 'info');
+        });
+        
+        // Успешная покупка
+        socket.on('purchase_success', (data) => {
+            showStatus(`Куплено ${data.amount} ${data.coin}!`, 'success');
+        });
+        
+        // Ошибки
+        socket.on('error', (message) => {
+            showStatus(message, 'error');
+        });
+        
+        // Обработчики событий
+        tapButton.addEventListener('click', (e) => {
+            // Эффект тапа
+            const rect = tapButton.getBoundingClientRect();
+            const x = e.clientX - rect.left - 50;
+            const y = e.clientY - rect.top - 50;
+            
+            const ripple = document.createElement('div');
+            ripple.className = 'tap-effect';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            tapButton.appendChild(ripple);
+            
+            setTimeout(() => ripple.remove(), 600);
+            
+            // Увеличиваем баланс
+            tapCount++;
+            userData.balance += 1;
+            updateBalance();
+            
+            // Анимация кнопки
+            tapButton.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                tapButton.style.transform = 'scale(1)';
+            }, 150);
+        });
+        
+        createCoinBtn.addEventListener('click', () => {
+            socket.emit('create_coin', { userId });
+            createCoinBtn.disabled = true;
+            createCoinBtn.textContent = 'Создание коина...';
+            
+            setTimeout(() => {
+                createCoinBtn.disabled = false;
+                createCoinBtn.textContent = '🪙 Создать свой коин';
+            }, 5000);
+        });
+        
+        // Функции обновления UI
+        function updateBalance() {
+            balanceEl.textContent = Math.floor(userData.balance).toLocaleString();
+        }
+        
+        function updateAllCoins() {
+            if (allCoins.length === 0) {
+                allCoinsEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">Коинов пока нет</p>';
+                return;
+            }
+            
+            allCoinsEl.innerHTML = allCoins.map(coin => `
+                <div class="coin-item">
+                    <div class="coin-info">
+                        <div class="coin-name">${coin.name}</div>
+                        <div class="coin-symbol">${coin.symbol}</div>
+                        <div class="coin-price">${coin.price} монет за штуку</div>
+                        <div class="coin-supply">${coin.current_supply}/${coin.total_supply} в обращении</div>
+                    </div>
+                    <div class="buy-section">
+                        <input type="number" min="1" max="100" value="1" class="buy-input" id="amount_${coin.id}">
+                        <button class="buy-btn" onclick="buyCoin('${coin.id}')">Купить</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateMyCoins() {
+            if (userData.coins_created.length === 0 && (!userData.coins_owned || userData.coins_owned.size === 0)) {
+                myCoinsEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">У вас пока нет коинов</p>';
+                return;
+            }
+            
+            let html = '';
+            
+            // Созданные коины
+            userData.coins_created.forEach(coinId => {
+                const coin = allCoins.find(c => c.id === coinId);
+                if (coin) {
+                    html += `
+                        <div class="coin-item my-coin-item">
+                            <div class="coin-info">
+                                <div class="coin-name">👑 ${coin.name} (создатель)</div>
+                                <div class="coin-symbol">${coin.symbol}</div>
+                                <div class="coin-price">${coin.price} монет за штуку</div>
+                                <div class="coin-supply">${coin.current_supply}/${coin.total_supply} продано</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            // Купленные коины
+            if (userData.coins_owned instanceof Map) {
+                userData.coins_owned.forEach((amount, coinId) => {
+                    const coin = allCoins.find(c => c.id === coinId);
+                    if (coin && amount > 0) {
+                        html += `
+                            <div class="coin-item">
+                                <div class="coin-info">
+                                    <div class="coin-name">${coin.name}</div>
+                                    <div class="coin-symbol">${coin.symbol}</div>
+                                    <div class="coin-price">У вас: ${amount} шт.</div>
+                                    <div class="coin-supply">Стоимость: ${(amount * coin.price).toFixed(2)} монет</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            
+            myCoinsEl.innerHTML = html || '<p style="text-align: center; opacity: 0.7;">У вас пока нет коинов</p>';
+        }
+        
+        function buyCoin(coinId) {
+            const amountInput = document.getElementById(`amount_${coinId}`);
+            const amount = parseInt(amountInput.value);
+            
+            if (!amount || amount < 1) {
+                showStatus('Введите корректное количество', 'error');
+                return;
+            }
+            
+            socket.emit('buy_coin', {
+                userId,
+                coinId,
+                amount
+            });
+        }
+        
+        function showStatus(message, type) {
+            statusEl.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusEl.innerHTML = '';
+            }, 5000);
+        }
+        
+        // Инициализация
+        console.log('Telegram User ID:', userId);
+    </script>
 </body>
 </html>
