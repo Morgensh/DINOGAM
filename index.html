@@ -16,6 +16,7 @@
       theme: {
         extend: {
           colors: {
+            // Dark theme colors
             darkBg: "#0f1117",
             darkBgLight: "#1a1d26",
             darkCard: "#1d212c",
@@ -26,6 +27,8 @@
             darkDanger: "#ef4444",
             darkMuted: "#94a3b8",
             darkBorder: "#2d323d",
+
+            // Light theme colors optimized
             lightBg: "#f0f4f8",
             lightBgLight: "#ffffff",
             lightCard: "#ffffff",
@@ -224,6 +227,31 @@
       100% { opacity: 0; transform: translateY(-60px) scale(1); }
     }
 
+    /* Desktop specific styles */
+    @media (min-width: 768px) {
+      .desktop-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .desktop-sidebar {
+        width: 260px;
+        flex-shrink: 0;
+      }
+
+      .desktop-content {
+        flex-grow: 1;
+        margin-left: 20px;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+    }
+
     /* Mobile specific styles */
     @media (max-width: 767px) {
       .mobile-tab-content {
@@ -269,8 +297,78 @@
 </head>
 
 <body class="gradient-bg min-h-screen dark"> <!-- Default dark theme -->
+  <!-- Desktop Layout -->
+  <div class="hidden md:flex desktop-container min-h-screen">
+    <!-- Sidebar -->
+    <aside class="desktop-sidebar glass rounded-2xl p-6 h-fit sticky top-6">
+      <div class="flex items-center mb-8">
+        <div class="w-14 h-14 rounded-full bg-darkCard flex items-center justify-center mr-3 border border-darkBorder">
+          <i class="fa-solid fa-dragon text-darkPrimary text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold">DINO Game</h1>
+          <p class="text-darkMuted text-sm">v2.0</p>
+        </div>
+      </div>
+
+      <div class="mb-6 p-4 rounded-xl bg-darkCard">
+        <div class="text-center mb-2">
+          <div class="text-2xl font-bold"><span id="desktop-balance">0</span> DINO</div>
+        </div>
+        <div class="text-center mb-2">
+          <div class="text-lg font-bold text-darkSecondary"><span id="desktop-stars">0</span> ⭐</div>
+        </div>
+        <div class="text-center">
+          <div class="text-lg font-bold text-darkPrimary"><span id="desktop-ton">0</span> TON</div>
+        </div>
+        <div class="text-center mt-2">
+          <div class="text-lg font-bold text-darkPrimary"><span id="desktop-dps">0</span> DINO / сек</div>
+        </div>
+      </div>
+
+      <nav class="space-y-2">
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="clicker">
+          <i class="fa-regular fa-hand-pointer text-lg w-6 mr-3"></i>
+          <span>Кликер</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="dinonet">
+          <i class="fa-solid fa-globe text-lg w-6 mr-3"></i>
+          <span>ДиноНет</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="business">
+          <i class="fa-solid fa-building text-lg w-6 mr-3"></i>
+          <span>Бизнес</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="investments">
+          <i class="fa-solid fa-chart-line text-lg w-6 mr-3"></i>
+          <span>Инвестиции</span>
+        </button>
+        <button class="desktop-nav-btn w-full text-left py-3 px-4 rounded-xl flex items-center transition-all" data-tab="profile">
+          <i class="fa-regular fa-user text-lg w-6 mr-3"></i>
+          <span>Профиль</span>
+        </button>
+      </nav>
+
+      <div class="mt-8 p-4 rounded-xl bg-darkCard">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-darkMuted">Уровень</span>
+          <span class="font-bold" id="desktop-level">1</span>
+        </div>
+        <div class="progress-bar h-2 w-full mb-1">
+          <div class="progress-fill" id="desktop-xp-bar" style="width: 0%"></div>
+        </div>
+        <div class="text-xs text-darkMuted text-right" id="desktop-xp-text">0/150 XP</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="desktop-content">
+      <div id="desktop-content" class="min-h-screen"></div>
+    </main>
+  </div>
+
   <!-- Mobile Layout -->
-  <div>
+  <div class="md:hidden">
     <!-- Header -->
     <header class="glass p-4 sticky top-0 z-40 border-b border-darkBorder">
       <div class="flex items-center justify-between">
@@ -332,21 +430,18 @@
   /*********************
    * Core Game State & API
    *********************/
-  const VERSION = 6; // Updated version
-  const LS_KEY = "dinogame_v6_state";
-  const THEME_KEY = "dinogame_v6_theme";
+  const VERSION = 5;
+  const LS_KEY = "dinogame_v5_state";
+  const THEME_KEY = "dinogame_v5_theme";
 
+  // API Configuration
   const API_BASE = 'https://dinod.ru/api';
+
 
   // Tunable economy constants
   const ECON = {
     CLICK_INC: 1.5,
     CLICK_COST_MULT: 1.6,
-    COMPANY_CREATE_COST: 10000,
-    CRYPTO_CREATE_DINO: 50000,
-    CLIENT_COST: 3000,
-    RELEASE_SHARES_COST: 1000, // for 100 shares = 10 per share? Adjust as per logic
-    RELEASE_CRYPTO_COST: 5000, // for 100 crypto
   };
 
   const state = {
@@ -377,28 +472,22 @@
     lastTick: Date.now(),
     isGuest: false,
     saveInProgress: false,
-    leaderboard: [],
-    companies: [], // Owned companies
-    cryptos: [], // Owned cryptos
-    ownedShares: [], // {companyId, amount}
-    ownedCryptos: [], // {cryptoId, amount, type: 'dino' or 'stars'}
-    newPurchases: 0, // For wallet badge
-    adminPayouts: [] // For admin panel
+    leaderboard: []
   };
 
   // Elements
-  const $content = () => document.getElementById("mobile-content");
-  const $balance = () => document.getElementById("mobile-balance");
-  const $stars = () => document.getElementById("mobile-stars");
-  const $ton = () => document.getElementById("mobile-ton");
-  const $dps = () => document.getElementById("mobile-dps");
-  const $level = () => document.getElementById("mobile-level");
-  const $xpText = () => document.getElementById("mobile-xp-text");
+  const $content = () => document.getElementById(isMobile() ? "mobile-content" : "desktop-content");
+  const $balance = () => document.getElementById(isMobile() ? "mobile-balance" : "desktop-balance");
+  const $stars = () => document.getElementById(isMobile() ? "mobile-stars" : "desktop-stars");
+  const $ton = () => document.getElementById(isMobile() ? "mobile-ton" : "desktop-ton");
+  const $dps = () => document.getElementById(isMobile() ? "mobile-dps" : "desktop-dps");
+  const $level = () => document.getElementById(isMobile() ? "mobile-level" : "desktop-level");
+  const $xpText = () => document.getElementById(isMobile() ? "mobile-xp-text" : "desktop-xp-text");
+  const $xpBar = () => document.getElementById("desktop-xp-bar");
   const $modal = () => document.getElementById("modal-root");
   const $toast = () => document.getElementById("toast-root");
   const $mobileUsername = () => document.getElementById("mobile-username");
   const $mobileAvatar = () => document.getElementById("mobile-avatar");
-  const $walletBadge = () => document.getElementById("wallet-badge");
 
   /*********************
    * API Functions
@@ -420,7 +509,6 @@
       return await response.json();
     } catch (error) {
       console.error('API call failed:', error);
-      toast('Ошибка связи с сервером', 'error');
       throw error;
     }
   }
@@ -429,6 +517,7 @@
     try {
       let userData = {};
 
+      // Check if running in Telegram
       if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe.user) {
         const tgUser = Telegram.WebApp.initDataUnsafe.user;
         userData = {
@@ -441,6 +530,7 @@
         };
         state.isGuest = false;
       } else {
+        // Guest mode
         userData = { is_guest: true };
         state.isGuest = true;
       }
@@ -453,8 +543,6 @@
       if (result.success) {
         updateStateFromUser(result.user);
         toast('Аккаунт загружен!');
-        loadOwned();
-        if (result.user.username === '@dopoldodo') loadAdminPayouts();
         return result.user;
       } else {
         throw new Error(result.error);
@@ -476,6 +564,7 @@
     state.ton = user.ton || state.ton;
     state.perClick = user.per_click || state.perClick;
     state.clickUpgradeCost = user.click_upgrade_cost || state.clickUpgradeCost;
+    state.clicks = user.clicks || state.clicks;
     state.level = user.level || state.level;
     state.xp = user.xp || state.xp;
     state.xpNext = user.xp_next || state.xpNext;
@@ -495,6 +584,7 @@
           ton: state.ton,
           per_click: state.perClick,
           click_upgrade_cost: state.clickUpgradeCost,
+          clicks: state.clicks,
           level: state.level,
           xp: state.xp,
           xp_next: state.xpNext
@@ -548,306 +638,13 @@
     }
   }
 
-  async function loadOwned() {
-    try {
-      const result = await apiCall(`/user/${state.user.id}/owned`);
-      if (result.success) {
-        state.companies = result.companies;
-        state.cryptos = result.cryptos;
-        state.ownedShares = result.ownedShares;
-        state.ownedCryptos = result.ownedCryptos;
-      }
-    } catch (error) {
-      console.error('Error loading owned:', error);
-    }
-  }
-
-  async function createCompany(name, tgChannelLink = '', tgChannelName = '') {
-    if (state.balance < ECON.COMPANY_CREATE_COST) return toast('Не хватает DINO', 'error');
-    try {
-      const result = await apiCall('/company', {
-        method: 'POST',
-        body: JSON.stringify({
-          name,
-          tg_channel_link: tgChannelLink,
-          tg_channel_name: tgChannelName
-        })
-      });
-      if (result.success) {
-        state.balance -= ECON.COMPANY_CREATE_COST;
-        state.companies.push(result.company);
-        toast('Компания создана!');
-        renderBusiness();
-        saveUserData();
-      } else {
-        toast(result.error, 'error');
-      }
-    } catch (error) {
-      console.error('Error creating company:', error);
-    }
-  }
-
-  async function createCrypto(name, type, tgChannelLink = '', tgChannelName = '') {
-    if (type === 'dino') {
-      if (state.balance < ECON.CRYPTO_CREATE_DINO) return toast('Не хватает DINO', 'error');
-      try {
-        const result = await apiCall('/crypto', {
-          method: 'POST',
-          body: JSON.stringify({
-            name,
-            created_with: 'dino',
-            tg_channel_link: tgChannelLink,
-            tg_channel_name: tgChannelName
-          })
-        });
-        if (result.success) {
-          state.balance -= ECON.CRYPTO_CREATE_DINO;
-          state.cryptos.push(result.crypto);
-          toast('Крипта создана!');
-          renderBusiness();
-          saveUserData();
-        } else {
-          toast(result.error, 'error');
-        }
-      } catch (error) {
-        console.error('Error creating crypto:', error);
-      }
-    } else if (type === 'stars') {
-      // Open invoice for stars payment
-      try {
-        const invoiceResult = await apiCall('/crypto/invoice', {
-          method: 'POST',
-          body: JSON.stringify({
-            name,
-            created_with: 'stars',
-            tg_channel_link: tgChannelLink,
-            tg_channel_name: tgChannelName
-          })
-        });
-        if (invoiceResult.success) {
-          Telegram.WebApp.openInvoice(invoiceResult.invoice_url, (status) => {
-            if (status === 'paid') {
-              state.cryptos.push(invoiceResult.crypto);
-              toast('Крипта создана за звёзды!');
-              renderBusiness();
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error creating stars crypto:', error);
-      }
-    }
-  }
-
-  async function buyClient(companyId) {
-    if (state.balance < ECON.CLIENT_COST) return toast('Не хватает DINO', 'error');
-    try {
-      const result = await apiCall(`/company/${companyId}/buy-client`, {
-        method: 'POST'
-      });
-      if (result.success) {
-        state.balance -= ECON.CLIENT_COST;
-        // Update company clients
-        const company = state.companies.find(c => c.id === companyId);
-        if (company) company.clients_count++;
-        toast('Клиент куплен!');
-        renderBusiness();
-        saveUserData();
-      }
-    } catch (error) {
-      console.error('Error buying client:', error);
-    }
-  }
-
-  async function releaseShares(companyId) {
-    if (state.balance < ECON.RELEASE_SHARES_COST) return toast('Не хватает DINO', 'error');
-    try {
-      const result = await apiCall(`/company/${companyId}/release-shares`, {
-        method: 'POST'
-      });
-      if (result.success) {
-        state.balance -= ECON.RELEASE_SHARES_COST;
-        const company = state.companies.find(c => c.id === companyId);
-        if (company) company.shares_available += 100; // Assume 100 per release
-        toast('Акции выпущены!');
-        renderBusiness();
-        saveUserData();
-      }
-    } catch (error) {
-      console.error('Error releasing shares:', error);
-    }
-  }
-
-  async function buyShare(companyId, amount = 1) {
-    try {
-      const result = await apiCall(`/company/${companyId}/buy-share`, {
-        method: 'POST',
-        body: JSON.stringify({ amount })
-      });
-      if (result.success) {
-        state.balance -= result.total_cost;
-        state.ownedShares.push({ companyId, amount });
-        state.newPurchases += amount;
-        updateWalletBadge();
-        toast('Акции куплены!');
-        renderInvestments();
-        saveUserData();
-      } else {
-        toast(result.error, 'error');
-      }
-    } catch (error) {
-      console.error('Error buying share:', error);
-    }
-  }
-
-  async function sellShare(companyId, amount = 1) {
-    try {
-      const result = await apiCall(`/company/${companyId}/sell-share`, {
-        method: 'POST',
-        body: JSON.stringify({ amount })
-      });
-      if (result.success) {
-        state.balance += result.total_return;
-        // Remove from ownedShares
-        const index = state.ownedShares.findIndex(s => s.companyId === companyId);
-        if (index > -1) {
-          state.ownedShares[index].amount -= amount;
-          if (state.ownedShares[index].amount <= 0) state.ownedShares.splice(index, 1);
-        }
-        toast('Акции проданы!');
-        renderInvestments();
-        saveUserData();
-      } else {
-        toast(result.error, 'error');
-      }
-    } catch (error) {
-      console.error('Error selling share:', error);
-    }
-  }
-
-  async function buyCrypto(cryptoId, amount = 1) {
-    const crypto = state.marketCryptos.find(c => c.id === cryptoId); // Assume loaded market
-    if (crypto.created_with === 'stars') {
-      try {
-        const invoiceResult = await apiCall(`/crypto/${cryptoId}/invoice`, {
-          method: 'POST',
-          body: JSON.stringify({ amount })
-        });
-        if (invoiceResult.success) {
-          Telegram.WebApp.openInvoice(invoiceResult.invoice_url, (status) => {
-            if (status === 'paid') {
-              state.ownedCryptos.push({ cryptoId, amount, type: 'stars' });
-              state.newPurchases += amount;
-              updateWalletBadge();
-              toast('Крипта куплена за звёзды!');
-              renderInvestments();
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error buying stars crypto:', error);
-      }
-    } else {
-      try {
-        const result = await apiCall(`/crypto/${cryptoId}/buy`, {
-          method: 'POST',
-          body: JSON.stringify({ amount })
-        });
-        if (result.success) {
-          state.balance -= result.total_cost;
-          state.ownedCryptos.push({ cryptoId, amount, type: 'dino' });
-          state.newPurchases += amount;
-          updateWalletBadge();
-          toast('Крипта куплена!');
-          renderInvestments();
-          saveUserData();
-        } else {
-          toast(result.error, 'error');
-        }
-      } catch (error) {
-        console.error('Error buying crypto:', error);
-      }
-    }
-  }
-
-  async function sellCrypto(cryptoId, amount = 1) {
-    const owned = state.ownedCryptos.find(c => c.cryptoId === cryptoId);
-    if (owned.type === 'stars') return toast('Крипту за звёзды нельзя продавать', 'error');
-    try {
-      const result = await apiCall(`/crypto/${cryptoId}/sell`, {
-        method: 'POST',
-        body: JSON.stringify({ amount })
-      });
-      if (result.success) {
-        state.balance += result.total_return;
-        owned.amount -= amount;
-        if (owned.amount <= 0) state.ownedCryptos = state.ownedCryptos.filter(c => c.cryptoId !== cryptoId);
-        toast('Крипта продана!');
-        renderInvestments();
-        saveUserData();
-      } else {
-        toast(result.error, 'error');
-      }
-    } catch (error) {
-      console.error('Error selling crypto:', error);
-    }
-  }
-
-  async function checkSubscription() {
-    try {
-      const result = await apiCall('/check-sub');
-      if (result.success && result.subscribed) {
-        state.balance += 1000000;
-        toast('Награда за подписку: 1M DINO!');
-        saveUserData();
-      } else {
-        toast('Вы не подписаны на канал', 'error');
-      }
-    } catch (error) {
-      console.error('Error checking sub:', error);
-    }
-  }
-
-  async function loadAdminPayouts() {
-    try {
-      const result = await apiCall('/admin/payouts');
-      if (result.success) {
-        state.adminPayouts = result.payouts;
-        renderProfile();
-      }
-    } catch (error) {
-      console.error('Error loading admin payouts:', error);
-    }
-  }
-
-  async function sendPayout(payoutId) {
-    try {
-      const result = await apiCall(`/admin/payout/${payoutId}`, { method: 'POST' });
-      if (result.success) {
-        toast('Выплата отправлена!');
-        loadAdminPayouts();
-      }
-    } catch (error) {
-      console.error('Error sending payout:', error);
-    }
-  }
-
-  async function deleteItem(type, id) {
-    try {
-      const result = await apiCall(`/${type}/${id}/delete`, { method: 'DELETE' });
-      if (result.success) {
-        toast('Удалено!');
-        loadOwned();
-        renderBusiness();
-      }
-    } catch (error) {
-      console.error('Error deleting:', error);
-    }
-  }
-
   /*********************
    * Utils
    *********************/
+  function isMobile() {
+    return window.innerWidth < 768;
+  }
+
   const uid = (p="id") => p + "_" + Math.random().toString(36).slice(2,9);
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   const fmt = (n, d=2) => {
@@ -859,23 +656,26 @@
   const now = () => Date.now();
 
   function save() {
+    // Save to localStorage for offline use
     localStorage.setItem(LS_KEY, JSON.stringify(state));
     localStorage.setItem(THEME_KEY, state.theme);
+
+    // Auto-save to server every 5 seconds
+    saveUserData();
   }
 
   function load() {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed.version < VERSION) {
-          Object.assign(state, parsed);
-          state.version = VERSION;
-        } else {
-          Object.assign(state, parsed);
-        }
-      } catch(_) {}
-    }
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.version < VERSION) {
+        Object.assign(state, parsed);
+        state.version = VERSION;
+      } else {
+        Object.assign(state, parsed);
+      }
+    } catch(_) {}
 
     const savedTheme = localStorage.getItem(THEME_KEY);
     if (savedTheme) {
@@ -917,15 +717,6 @@
 
   function closeModal(){ $modal().innerHTML = ""; }
 
-  function updateWalletBadge() {
-    if (state.newPurchases > 0) {
-      $walletBadge().textContent = state.newPurchases;
-      $walletBadge().classList.remove('hidden');
-    } else {
-      $walletBadge().classList.add('hidden');
-    }
-  }
-
   /*********************
    * Theme Toggle
    *********************/
@@ -944,13 +735,6 @@
     const dt = Math.max(0, Math.min(1, (now() - state.lastTick)/1000));
     state.lastTick = now();
     state.dps = 0;
-    // Calculate DPS from owned
-    state.ownedCryptos.forEach(oc => {
-      if (oc.type === 'stars') state.dps += oc.amount * 0.1;
-    });
-    state.companies.forEach(c => {
-      state.dps += c.clients_count * 1;
-    });
     state.balance += state.dps * dt;
     updateHeader();
 
@@ -971,13 +755,16 @@
     $stars().textContent = fmt(state.stars);
     $ton().textContent = fmt(state.ton);
     $dps().textContent = fmt(state.dps);
-    $mobileUsername().textContent = state.user.username;
-    $mobileAvatar().src = state.user.avatar_url;
+    if (isMobile()) {
+      $mobileUsername().textContent = state.user.username;
+      $mobileAvatar().src = state.user.avatar_url;
+    }
   }
 
   function updateLevel() {
     $level().textContent = state.level;
     $xpText().textContent = `${Math.floor(state.xp)}/${state.xpNext}`;
+    if ($xpBar()) $xpBar().style.width = `${(state.xp / state.xpNext) * 100}%`;
   }
 
   /*********************
@@ -985,8 +772,16 @@
    *********************/
   function setTab(tab) {
     state.currentTab = tab;
-    if (tab === 'investments') state.newPurchases = 0; // Reset on open
-    updateWalletBadge();
+
+    document.querySelectorAll(".desktop-nav-btn").forEach(b => {
+      b.classList.remove("bg-darkPrimary", "text-white");
+      b.classList.add("text-darkMuted", "hover:bg-darkCardHover");
+    });
+    const desktopBtn = document.querySelector(`.desktop-nav-btn[data-tab='${tab}']`);
+    if (desktopBtn) {
+      desktopBtn.classList.remove("text-darkMuted", "hover:bg-darkCardHover");
+      desktopBtn.classList.add("bg-darkPrimary", "text-white");
+    }
 
     document.querySelectorAll(".nav-btn").forEach(b => {
       b.classList.remove("active", "bg-darkCardHover");
@@ -1188,144 +983,20 @@
 
   function setBusinessTab(t){ businessTab=t; renderBusiness(); }
 
-  function companiesPanelHTML() {
+  function companiesPanelHTML(){
     return `
       <div class="space-y-5">
-        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="openCreateCompanyModal()">
-          Создать компанию за ${fmt(ECON.COMPANY_CREATE_COST)} DINO
-        </button>
-        ${state.companies.map(c => `
-          <div class="card p-4 cursor-pointer" onclick="openCompanyDetails(${c.id})">
-            <div class="font-bold">${c.name}</div>
-            <div class="text-sm text-darkMuted">Клиенты: ${c.clients_count}</div>
-            <div class="text-sm text-darkMuted">Акции доступно: ${c.shares_available}</div>
-            <div class="text-sm text-darkPrimary">Реф-ссылка: t.me/dinogamebot?start=${c.ref_code}</div>
-            ${state.user.username === '@dopoldodo' ? `<button class="mt-2 px-2 py-1 rounded bg-darkDanger text-white" onclick="deleteItem('company', ${c.id})">Удалить</button>` : ''}
-          </div>
-        `).join('')}
+        <div class="text-center py-10 card"><i class="fa-regular fa-building text-4xl text-darkMuted mb-3"></i><p>Ещё нет компаний</p></div>
       </div>
     `;
   }
 
-  function openCreateCompanyModal() {
-    openModal(`
-      <div class="space-y-4">
-        <h2 class="text-xl font-bold mb-2">Создать компанию</h2>
-        <p class="text-sm text-yellow-400">Пожалуйста, соблюдайте традиционные ценности: не используйте оскорбительный контент, пропаганду насилия или запрещённые темы. Мы за добрую и позитивную атмосферу!</p>
-        <input id="comp_name" placeholder="Название компании (уникальное)" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-        <label><input type="checkbox" id="comp_channel" onclick="toggleChannelFields()"> От лица Telegram-канала</label>
-        <div id="channel_fields" class="hidden space-y-2">
-          <input id="comp_channel_link" placeholder="Ссылка на канал (@channel)" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-          <input id="comp_channel_name" placeholder="Название канала" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-        </div>
-        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium mt-2" onclick="createCompanyFromModal()">
-          Создать
-        </button>
-      </div>
-    `);
-  }
-
-  function toggleChannelFields() {
-    const checked = document.getElementById('comp_channel').checked;
-    document.getElementById('channel_fields').classList.toggle('hidden', !checked);
-  }
-
-  function createCompanyFromModal() {
-    const name = document.getElementById('comp_name').value.trim();
-    if (!name) return toast('Введите название', 'error');
-    const channel = document.getElementById('comp_channel').checked;
-    const link = channel ? document.getElementById('comp_channel_link').value.trim() : '';
-    const channelName = channel ? document.getElementById('comp_channel_name').value.trim() : '';
-    createCompany(name, link, channelName);
-    closeModal();
-  }
-
-  function openCompanyDetails(id) {
-    const c = state.companies.find(c => c.id === id);
-    if (!c) return;
-    openModal(`
-      <div class="space-y-4">
-        <h2 class="text-xl font-bold">${c.name}</h2>
-        <p>Клиенты: ${c.clients_count}</p>
-        <p>Акции доступно: ${c.shares_available}</p>
-        <p>Цена акции: ${fmt(10 + c.clients_count * 0.5)}</p>
-        <p>Реф-ссылка: t.me/dinogamebot?start=${c.ref_code}</p>
-        <button class="w-full py-3 rounded-xl bg-darkPrimary text-white" onclick="buyClient(${id})">Купить клиента за ${fmt(ECON.CLIENT_COST)} DINO</button>
-        <button class="w-full py-3 rounded-xl bg-darkSecondary text-white" onclick="releaseShares(${id})">Выпустить акции за ${fmt(ECON.RELEASE_SHARES_COST)} DINO</button>
-      </div>
-    `);
-  }
-
-  function cryptoPanelHTML() {
+  function cryptoPanelHTML(){
     return `
       <div class="space-y-5">
-        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="openCreateCryptoModal('dino')">
-          Создать крипту за ${fmt(ECON.CRYPTO_CREATE_DINO)} DINO
-        </button>
-        <button class="w-full py-3 rounded-xl bg-darkSecondary hover:bg-darkSecondary text-white font-medium" onclick="openCreateCryptoModal('stars')">
-          Создать крипту за звёзды
-        </button>
-        ${state.cryptos.map(c => `
-          <div class="card p-4">
-            <div class="font-bold">${c.name}</div>
-            <div class="text-sm text-darkMuted">Тип: ${c.created_with === 'dino' ? 'DINO' : 'Звёзды'}</div>
-            <div class="text-sm text-darkMuted">Клиенты: ${c.clients_count}</div>
-            <div class="text-sm text-darkMuted">Доступно: ${c.created_with === 'stars' ? 'Бесконечно' : c.supply_available}</div>
-            <div class="text-sm text-darkPrimary">Реф-ссылка: t.me/dinogamebot?start=${c.ref_code}</div>
-            ${c.created_with === 'dino' ? `<button class="mt-2 px-2 py-1 rounded bg-darkSecondary text-white" onclick="releaseCrypto(${c.id})">Выпустить за ${fmt(ECON.RELEASE_CRYPTO_COST)} DINO</button>` : ''}
-            <p class="text-xs text-darkMuted mt-2">При покупке: ${c.created_with === 'stars' ? 'Покупатель получает 0.1 DPS/единицу, вы - 40% от продажи' : 'Цена растёт от продаж/клиентов'}</p>
-            ${state.user.username === '@dopoldodo' ? `<button class="mt-2 px-2 py-1 rounded bg-darkDanger text-white" onclick="deleteItem('crypto', ${c.id})">Удалить</button>` : ''}
-          </div>
-        `).join('')}
+        <div class="text-center py-10 card"><i class="fa-regular fa-coins text-4xl text-darkMuted mb-3"></i><p>Ещё нет токенов</p></div>
       </div>
     `;
-  }
-
-  function openCreateCryptoModal(type) {
-    openModal(`
-      <div class="space-y-4">
-        <h2 class="text-xl font-bold mb-2">Создать крипту (${type === 'dino' ? 'DINO' : 'Звёзды'})</h2>
-        <p class="text-sm text-yellow-400">Пожалуйста, соблюдайте традиционные ценности: не используйте оскорбительный контент, пропаганду насилия или запрещённые темы. Мы за добрую и позитивную атмосферу!</p>
-        <input id="crypto_name" placeholder="Название крипты (уникальное)" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-        <label><input type="checkbox" id="crypto_channel" onclick="toggleChannelFields()"> От лица Telegram-канала</label>
-        <div id="channel_fields" class="hidden space-y-2">
-          <input id="crypto_channel_link" placeholder="Ссылка на канал (@channel)" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-          <input id="crypto_channel_name" placeholder="Название канала" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-        </div>
-        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium mt-2" onclick="createCryptoFromModal('${type}')">
-          Создать
-        </button>
-      </div>
-    `);
-  }
-
-  function createCryptoFromModal(type) {
-    const name = document.getElementById('crypto_name').value.trim();
-    if (!name) return toast('Введите название', 'error');
-    const channel = document.getElementById('crypto_channel').checked;
-    const link = channel ? document.getElementById('crypto_channel_link').value.trim() : '';
-    const channelName = channel ? document.getElementById('crypto_channel_name').value.trim() : '';
-    createCrypto(name, type, link, channelName);
-    closeModal();
-  }
-
-  async function releaseCrypto(id) {
-    if (state.balance < ECON.RELEASE_CRYPTO_COST) return toast('Не хватает DINO', 'error');
-    try {
-      const result = await apiCall(`/crypto/${id}/release`, {
-        method: 'POST'
-      });
-      if (result.success) {
-        state.balance -= ECON.RELEASE_CRYPTO_COST;
-        const crypto = state.cryptos.find(c => c.id === id);
-        if (crypto) crypto.supply_available += 100; // Assume 100 per release
-        toast('Крипта выпущена!');
-        renderBusiness();
-        saveUserData();
-      }
-    } catch (error) {
-      console.error('Error releasing crypto:', error);
-    }
   }
 
   function referralsPanelHTML() {
@@ -1333,10 +1004,8 @@
       <div class="space-y-5">
         <div class="card p-5">
           <h3 class="font-semibold text-lg mb-4">Реферальная система</h3>
-          <p class="text-sm text-darkMuted mb-4">Приглашайте друзей и зарабатывайте!</p>
-          <p class="text-sm mb-4">Подпишитесь на <a href="https://t.me/dinogamed" class="text-darkPrimary">t.me/dinogamed</a> и получите 1M DINO!</p>
-          <button class="w-full py-3 rounded-xl bg-darkPrimary text-white" onclick="checkSubscription()">Проверить подписку и получить награду</button>
-          <div class="bg-darkBgLight rounded-xl p-3 mt-4">
+          <p class="text-sm text-darkMuted mb-4">Приглашайте друзей!</p>
+          <div class="bg-darkBgLight rounded-xl p-3">
             <div class="text-darkMuted text-sm mb-1">Приглашено</div>
             <div class="font-semibold text-lg">0</div>
           </div>
@@ -1349,22 +1018,8 @@
    * Investments
    *********************/
   let invTab = "stocks";
-  state.marketStocks = []; // Load from API
-  state.marketCryptos = []; // Load from API
 
-  async function loadMarket() {
-    try {
-      const stocksResult = await apiCall('/market/stocks');
-      if (stocksResult.success) state.marketStocks = stocksResult.stocks;
-      const cryptosResult = await apiCall('/market/cryptos');
-      if (cryptosResult.success) state.marketCryptos = cryptosResult.cryptos;
-    } catch (error) {
-      console.error('Error loading market:', error);
-    }
-  }
-
-  function renderInvestments() {
-    loadMarket(); // Refresh
+  function renderInvestments(){
     $content().innerHTML = `
       <section class="space-y-5">
         <div class="card p-2">
@@ -1388,63 +1043,33 @@
 
   function setInvTab(t){ invTab=t; renderInvestments(); }
 
-  function stocksMarketHTML() {
+  function stocksMarketHTML(){
     return `
       <div class="space-y-4">
-        ${state.marketStocks.map(s => `
-          <div class="card p-4">
-            <div class="font-bold">${s.name}</div>
-            <div class="text-sm text-darkMuted">Владелец: ${s.owner_name || s.tg_channel_name}</div>
-            <div class="text-sm text-darkMuted">Клиенты: ${s.clients_count}</div>
-            <div class="text-sm text-darkPrimary">Цена акции: ${fmt(10 + s.clients_count * 0.5)} DINO</div>
-            <div class="text-sm text-darkMuted">Доступно: ${s.shares_available}</div>
-            <button class="mt-2 px-4 py-2 rounded-xl bg-darkPrimary text-white" onclick="buyShare(${s.id})">Купить 1</button>
-            ${state.user.username === '@dopoldodo' ? `<button class="mt-2 px-2 py-1 rounded bg-darkDanger text-white" onclick="deleteItem('company', ${s.id})">Удалить</button>` : ''}
-          </div>
-        `).join('')}
+        <div class="card p-5 text-center py-10"><i class="fa-regular fa-building text-4xl text-darkMuted mb-3"></i><p>Нет компаний на рынке</p></div>
       </div>
     `;
   }
 
-  function cryptoMarketHTML() {
+  function cryptoMarketHTML(){
     return `
       <div class="space-y-4">
-        ${state.marketCryptos.map(c => `
-          <div class="card p-4">
-            <div class="font-bold">${c.name}</div>
-            <div class="text-sm text-darkMuted">Владелец: ${c.owner_name || c.tg_channel_name}</div>
-            <div class="text-sm text-darkMuted">Клиенты: ${c.clients_count}</div>
-            <div class="text-sm text-darkPrimary">Цена: ${c.created_with === 'stars' ? '10 ⭐' : fmt(1 + c.sales * 0.1 + c.clients_count * 0.2) + ' DINO'}</div>
-            <div class="text-sm text-darkMuted">Доступно: ${c.created_with === 'stars' ? 'Бесконечно' : c.supply_available}</div>
-            <button class="mt-2 px-4 py-2 rounded-xl bg-darkPrimary text-white" onclick="buyCrypto(${c.id})">Купить 1</button>
-            ${state.user.username === '@dopoldodo' ? `<button class="mt-2 px-2 py-1 rounded bg-darkDanger text-white" onclick="deleteItem('crypto', ${c.id})">Удалить</button>` : ''}
-          </div>
-        `).join('')}
+        <div class="card p-5 text-center py-10"><i class="fa-regular fa-coins text-4xl text-darkMuted mb-3"></i><p>Нет токенов на рынке</p></div>
       </div>
     `;
   }
 
-  function walletHTML() {
+  function walletHTML(){
     return `
       <div class="space-y-5">
         <div class="card p-5">
           <h3 class="font-semibold text-lg mb-4">Акции</h3>
-          ${state.ownedShares.length === 0 ? 'Нет акций' : state.ownedShares.map(s => `
-            <div class="flex justify-between items-center mb-2">
-              <span>Компания ID ${s.companyId}: ${s.amount} шт.</span>
-              <button class="px-2 py-1 rounded bg-darkDanger text-white" onclick="sellShare(${s.companyId})">Продать 1</button>
-            </div>
-          `).join('')}
+          Нет акций в портфеле
         </div>
 
         <div class="card p-5">
           <h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>
-          ${state.ownedCryptos.length === 0 ? 'Нет крипты' : state.ownedCryptos.map(c => `
-            <div class="flex justify-between items-center mb-2">
-              <span>Крипта ID ${c.cryptoId}: ${c.amount} шт. (${c.type})</span>
-              ${c.type === 'dino' ? `<button class="px-2 py-1 rounded bg-darkDanger text-white" onclick="sellCrypto(${c.cryptoId})">Продать 1</button>` : '<span class="text-darkPrimary">Приносит DPS</span>'}
-            </div>
-          `).join('')}
+          Нет крипты в портфеле
         </div>
       </div>
     `;
@@ -1457,24 +1082,6 @@
     const connectionStatus = state.isGuest ?
       '<div class="bg-yellow-500/20 border border-yellow-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-exclamation-triangle text-yellow-400 mr-2"></i>Гостевой режим - данные не сохраняются на сервере</div>' :
       '<div class="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-check-circle text-green-400 mr-2"></i>Подключен к серверу</div>';
-
-    let adminPanel = '';
-    if (state.user.username === '@dopoldodo') {
-      adminPanel = `
-        <div class="card p-5 mt-4">
-          <h3 class="font-semibold mb-4">Админ панель</h3>
-          <p>Общий доход: ${fmt(state.adminTotalIncome)} ⭐</p>
-          <p>Баланс: ${fmt(state.adminBalance)} ⭐</p>
-          <h4 class="mt-4">Выплаты:</h4>
-          ${state.adminPayouts.map(p => `
-            <div class="flex justify-between mb-2">
-              <span>Крипта ${p.crypto_id}: ${fmt(p.amount)} ⭐</span>
-              <button class="px-2 py-1 rounded bg-darkPrimary text-white" onclick="sendPayout(${p.id})">Отправить</button>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
 
     $content().innerHTML = `
       <section class="space-y-6">
@@ -1538,8 +1145,6 @@
             </div>
           </div>
         </div>
-
-        ${adminPanel}
       </section>
     `;
   }
@@ -1628,25 +1233,30 @@
    * Init
    *********************/
   async function init() {
+    // Show loading
     if ($content()) {
       $content().innerHTML = '<div class="text-center py-20"><i class="fa-solid fa-spinner fa-spin text-4xl text-darkPrimary mb-4"></i><p>Загружаем игру...</p></div>';
     }
 
+    // Load local state first
     load();
     document.body.classList.add(state.theme);
 
+    // Initialize user (from Telegram or as guest)
     await initUser();
 
+    // Set up navigation
     document.querySelectorAll("[data-tab]").forEach(b =>
       b.addEventListener("click", (e) => setTab(e.currentTarget.dataset.tab))
     );
 
+    // Start the game
     setTab(state.currentTab);
     updateHeader();
     updateLevel();
-    updateWalletBadge();
     tick();
 
+    // Auto-save every 5 seconds
     setInterval(() => {
       if (!state.isGuest && state.user.id) {
         saveUserData();
