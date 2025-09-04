@@ -315,12 +315,6 @@
         <div class="text-center mb-2">
           <div class="text-2xl font-bold"><span id="desktop-balance">0</span> DINO</div>
         </div>
-        <div class="text-center mb-2">
-          <div class="text-lg font-bold text-darkSecondary"><span id="desktop-stars">0</span> ⭐</div>
-        </div>
-        <div class="text-center">
-          <div class="text-lg font-bold text-darkPrimary"><span id="desktop-ton">0</span> TON</div>
-        </div>
         <div class="text-center mt-2">
           <div class="text-lg font-bold text-darkPrimary"><span id="desktop-dps">0</span> DINO / сек</div>
         </div>
@@ -377,8 +371,6 @@
           <div>
             <div class="font-bold"><span id="mobile-username">DinoUser</span></div>
             <div class="text-xs text-darkMuted"><span id="mobile-balance">0</span> DINO</div>
-            <div class="text-xs text-darkSecondary"><span id="mobile-stars">0</span> ⭐</div>
-            <div class="text-xs text-darkPrimary"><span id="mobile-ton">0</span> TON</div>
             <div class="text-xs text-darkMuted"><span id="mobile-dps">0</span>/сек</div>
           </div>
         </div>
@@ -449,8 +441,6 @@
     currentTab: "clicker",
     balance: 1000,
     dps: 0,
-    stars: 100,
-    ton: 1.0,
     perClick: 2,
     clickUpgradeCost: 200,
     user: {
@@ -471,15 +461,12 @@
     theme: "dark",
     lastTick: Date.now(),
     isGuest: false,
-    saveInProgress: false,
-    leaderboard: []
+    saveInProgress: false
   };
 
   // Elements
   const $content = () => document.getElementById(isMobile() ? "mobile-content" : "desktop-content");
   const $balance = () => document.getElementById(isMobile() ? "mobile-balance" : "desktop-balance");
-  const $stars = () => document.getElementById(isMobile() ? "mobile-stars" : "desktop-stars");
-  const $ton = () => document.getElementById(isMobile() ? "mobile-ton" : "desktop-ton");
   const $dps = () => document.getElementById(isMobile() ? "mobile-dps" : "desktop-dps");
   const $level = () => document.getElementById(isMobile() ? "mobile-level" : "desktop-level");
   const $xpText = () => document.getElementById(isMobile() ? "mobile-xp-text" : "desktop-xp-text");
@@ -560,8 +547,6 @@
 
     state.user = { ...state.user, ...user };
     state.balance = user.balance || state.balance;
-    state.stars = user.stars || state.stars;
-    state.ton = user.ton || state.ton;
     state.perClick = user.per_click || state.perClick;
     state.clickUpgradeCost = user.click_upgrade_cost || state.clickUpgradeCost;
     state.clicks = user.clicks || state.clicks;
@@ -580,8 +565,6 @@
         method: 'PUT',
         body: JSON.stringify({
           balance: state.balance,
-          stars: state.stars,
-          ton: state.ton,
           per_click: state.perClick,
           click_upgrade_cost: state.clickUpgradeCost,
           clicks: state.clicks,
@@ -598,43 +581,6 @@
       console.error('Error saving user data:', error);
     } finally {
       state.saveInProgress = false;
-    }
-  }
-
-  async function saveUserProfile() {
-    if (state.isGuest || !state.user.id) return;
-
-    try {
-      const result = await apiCall(`/user/${state.user.id}/profile`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          first_name: state.user.first_name,
-          last_name: state.user.last_name,
-          bio: state.user.bio,
-          telegram_channel: state.user.telegram_channel,
-          show_username: state.user.show_username,
-          avatar_url: state.user.avatar_url
-        })
-      });
-
-      if (result.success) {
-        toast('Профиль обновлен!');
-      }
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      toast('Ошибка сохранения профиля', 'error');
-    }
-  }
-
-  async function loadLeaderboard(type = 'balance') {
-    try {
-      const result = await apiCall(`/leaderboard?type=${type}&limit=10`);
-      if (result.success) {
-        state.leaderboard = result.leaderboard;
-        renderIfTab("dinonet", renderDinoNet);
-      }
-    } catch (error) {
-      console.error('Error loading leaderboard:', error);
     }
   }
 
@@ -659,9 +605,6 @@
     // Save to localStorage for offline use
     localStorage.setItem(LS_KEY, JSON.stringify(state));
     localStorage.setItem(THEME_KEY, state.theme);
-
-    // Auto-save to server every 5 seconds
-    saveUserData();
   }
 
   function load() {
@@ -752,8 +695,6 @@
 
   function updateHeader() {
     $balance().textContent = fmt(state.balance);
-    $stars().textContent = fmt(state.stars);
-    $ton().textContent = fmt(state.ton);
     $dps().textContent = fmt(state.dps);
     if (isMobile()) {
       $mobileUsername().textContent = state.user.username;
@@ -871,27 +812,23 @@
     $content().innerHTML = `
       <section class="space-y-5">
         <div class="card p-2">
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 gap-2">
             <button class="tab-btn ${dinonetTab==='feed'?'active':''} rounded-xl py-3 font-medium" onclick="setDinoNetTab('feed')">
               <i class="fa-solid fa-rss mr-2"></i>Лента
             </button>
             <button class="tab-btn ${dinonetTab==='myposts'?'active':''} rounded-xl py-3 font-medium" onclick="setDinoNetTab('myposts')">
               <i class="fa-solid fa-file-lines mr-2"></i>Мои
             </button>
-            <button class="tab-btn ${dinonetTab==='leaders'?'active':''} rounded-xl py-3 font-medium" onclick="setDinoNetTab('leaders')">
-              <i class="fa-solid fa-trophy mr-2"></i>Лидеры
-            </button>
           </div>
         </div>
 
-        ${dinonetTab==='feed' ? feedPanelHTML() : dinonetTab==='myposts' ? myPostsPanelHTML() : leadersPanelHTML()}
+        ${dinonetTab==='feed' ? feedPanelHTML() : myPostsPanelHTML()}
       </section>
     `;
   }
 
   function setDinoNetTab(t){
     dinonetTab=t;
-    if (t === 'leaders') loadLeaderboard();
     renderDinoNet();
   }
 
@@ -907,49 +844,6 @@
     return `
       <div class="space-y-4">
         <div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Нет ваших постов</p></div>
-      </div>
-    `;
-  }
-
-  function leadersPanelHTML() {
-    if (state.leaderboard.length === 0) {
-      return `
-        <div class="space-y-4">
-          <div class="text-center py-10">
-            <i class="fa-solid fa-trophy text-4xl text-darkMuted mb-3"></i>
-            <p>Загружаем лидеров...</p>
-          </div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="space-y-4">
-        <div class="flex gap-2 mb-4">
-          <button class="px-3 py-1 rounded-lg bg-darkPrimary text-white text-sm" onclick="loadLeaderboard('balance')">
-            💰 По балансу
-          </button>
-          <button class="px-3 py-1 rounded-lg bg-darkCard text-darkMuted text-sm" onclick="loadLeaderboard('level')">
-            🎯 По уровню
-          </button>
-          <button class="px-3 py-1 rounded-lg bg-darkCard text-darkMuted text-sm" onclick="loadLeaderboard('clicks')">
-            👆 По кликам
-          </button>
-        </div>
-        ${state.leaderboard.map((user, index) => `
-          <div class="card p-4 flex items-center">
-            <div class="text-2xl font-bold mr-4 ${index < 3 ? 'text-darkSecondary' : 'text-darkMuted'}">#${index + 1}</div>
-            <img src="${user.avatar_url}" class="w-10 h-10 rounded-full mr-3">
-            <div class="flex-grow">
-              <div class="font-bold">${user.name}</div>
-              <div class="text-sm text-darkMuted">@${user.username}</div>
-            </div>
-            <div class="text-right">
-              <div class="font-bold text-darkPrimary">${fmt(user.balance)} DINO</div>
-              <div class="text-xs text-darkMuted">Ур. ${user.level} • ${fmt(user.clicks)} кликов</div>
-            </div>
-          </div>
-        `).join('')}
       </div>
     `;
   }
@@ -1079,14 +973,8 @@
    * Profile
    *********************/
   function renderProfile() {
-    const connectionStatus = state.isGuest ?
-      '<div class="bg-yellow-500/20 border border-yellow-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-exclamation-triangle text-yellow-400 mr-2"></i>Гостевой режим - данные не сохраняются на сервере</div>' :
-      '<div class="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-4"><i class="fa-solid fa-check-circle text-green-400 mr-2"></i>Подключен к серверу</div>';
-
     $content().innerHTML = `
       <section class="space-y-6">
-        ${connectionStatus}
-
         <div class="card p-5">
           <div class="flex items-center gap-4 mb-4">
             <img src="${state.user.avatar_url}" class="w-16 h-16 rounded-full border-2 border-darkPrimary">
@@ -1097,9 +985,6 @@
           </div>
           <p class="text-sm mb-4">${state.user.bio}</p>
           ${state.user.telegram_channel ? `<p class="text-sm text-darkPrimary">Telegram: ${state.user.telegram_channel}</p>` : ''}
-          <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="openEditProfile()">
-            Редактировать профиль
-          </button>
         </div>
 
         <div class="card p-5">
@@ -1116,10 +1001,6 @@
             <div class="text-center">
               <div class="text-2xl font-bold text-darkPrimary">${fmt(state.clicks)}</div>
               <div class="text-sm text-darkMuted">Кликов</div>
-            </div>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-darkSecondary">${fmt(state.stars)}</div>
-              <div class="text-sm text-darkMuted">Звёзды</div>
             </div>
           </div>
         </div>
@@ -1152,81 +1033,7 @@
   function toggleShowUsername() {
     state.user.show_username = !state.user.show_username;
     save();
-    saveUserProfile();
     renderProfile();
-  }
-
-  function openEditProfile(){
-    openModal(`
-      <div class="space-y-4">
-        <h2 class="text-xl font-bold mb-2">Редактировать профиль</h2>
-        <div class="space-y-3">
-          <div>
-            <label class="block text-sm font-medium mb-1">Имя</label>
-            <input id="edit_first_name" value="${state.user.first_name}" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Фамилия</label>
-            <input id="edit_last_name" value="${state.user.last_name || ''}" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Био</label>
-            <textarea id="edit_bio" rows="3" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3">${state.user.bio}</textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Telegram канал</label>
-            <input id="edit_tg" value="${state.user.telegram_channel}" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3" placeholder="@channel">
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Аватар</label>
-            <input id="edit_avatar" type="file" accept="image/*" class="hidden">
-            <button onclick="document.getElementById('edit_avatar').click()" class="px-4 py-2 rounded-xl bg-darkPrimary text-white">Загрузить аватар</button>
-            <div id="edit_avatar_preview" class="mt-2"><img src="${state.user.avatar_url}" class="w-16 h-16 rounded-full"></div>
-          </div>
-        </div>
-        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium mt-2" onclick="saveProfile()">
-          Сохранить
-        </button>
-      </div>
-    `);
-
-    document.getElementById('edit_avatar').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          document.getElementById('edit_avatar_preview').innerHTML = `<img src="${ev.target.result}" class="w-16 h-16 rounded-full">`;
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-  }
-
-  function saveProfile(){
-    const photoFile = document.getElementById("edit_avatar").files[0];
-    if (photoFile) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        state.user.avatar_url = e.target.result;
-        finalizeSaveProfile();
-      };
-      reader.readAsDataURL(photoFile);
-      return;
-    }
-    finalizeSaveProfile();
-  }
-
-  function finalizeSaveProfile() {
-    state.user.first_name = document.getElementById("edit_first_name").value.trim();
-    state.user.last_name = document.getElementById("edit_last_name").value.trim();
-    state.user.bio = document.getElementById("edit_bio").value.trim();
-    state.user.telegram_channel = document.getElementById("edit_tg").value.trim();
-
-    closeModal();
-    renderProfile();
-    updateHeader();
-    save();
-    saveUserProfile();
   }
 
   /*********************
@@ -1256,12 +1063,12 @@
     updateLevel();
     tick();
 
-    // Auto-save every 5 seconds
+    // Auto-save to server every 30 seconds
     setInterval(() => {
       if (!state.isGuest && state.user.id) {
         saveUserData();
       }
-    }, 5000);
+    }, 30000);
 
     toast('🦖 Добро пожаловать в DINO Game!');
   }
