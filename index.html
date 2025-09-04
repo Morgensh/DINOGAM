@@ -896,22 +896,36 @@
       }
       const companies = result.companies;
 
-      let html = '<div class="space-y-4">';
-      if (companies.length < 3) {
-        html += `
-          <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="createCompany()">
-            Создать компанию
-          </button>
-        `;
-      }
+      let html = '<div class="space-y-5">';
+      html += `
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-semibold text-lg mb-1">Мои компании</h3>
+              <p class="text-sm text-darkMuted">Создано: ${companies.length} из 3</p>
+            </div>
+            ${companies.length < 3 ? `
+              <button class="px-4 py-2.5 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium flex items-center" onclick="createCompany()">
+                <i class="fa-solid fa-plus mr-2"></i>Создать
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+
+      html += '<div class="space-y-4">';
       companies.forEach(c => {
         html += `
-          <button class="w-full text-left px-4 py-3 rounded-xl bg-darkCard hover:bg-darkCardHover" onclick="viewCompany(${c.id})">
-            ${c.name} - Клиенты: ${c.clients_count}
-          </button>
+          <div class="card p-5 cursor-pointer" onclick="viewCompany(${c.id})">
+            <div class="flex items-center justify-between mb-2">
+              <div class="font-bold text-lg">${c.name}</div>
+              <span class="pill">Ваш бизнес</span>
+            </div>
+            <div class="text-sm text-darkMuted">Клиенты: ${c.clients_count} | Цена акции: ${fmt(c.share_price)}</div>
+          </div>
         `;
       });
-      html += '</div>';
+      html += '</div></div>';
       return html;
     } catch (err) {
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
@@ -920,11 +934,17 @@
 
   function createCompany() {
     openModal(`
-      <h3 class="font-bold text-lg mb-4">Создать компанию</h3>
-      <input id="company-name" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Уникальное название">
-      <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="doCreateCompany()">
-        Создать
-      </button>
+      <div class="space-y-4">
+        <h2 class="text-xl font-bold mb-2">Новая компания</h2>
+        <p class="text-sm text-red-400">Не пишите ничего плохого. Мы не несем ответственности. Мы за традиционные ценности.</p>
+        <div>
+          <label class="block text-sm font-medium mb-1">Название компании</label>
+          <input id="company-name" class="w-full bg-darkBgLight border border-darkBorder rounded-xl px-4 py-3" placeholder="Например: DinoSoft">
+        </div>
+        <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium mt-2" onclick="doCreateCompany()">
+          Создать компанию
+        </button>
+      </div>
     `);
   }
 
@@ -942,12 +962,16 @@
         toast('Компания создана!');
         const link = `t.me/dinosav_bot?start=company_${result.company.id}`;
         openModal(`
-          <h3 class="font-bold text-lg mb-4">Компания создана!</h3>
-          <p class="mb-4">Ссылка: ${link}</p>
-          <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary text-white" onclick="navigator.clipboard.writeText('${link}').then(()=>toast('Скопировано!'))">
-            Скопировать
-          </button>
-          <p class="text-sm text-darkMuted mt-4">Поделитесь с друзьями, чтобы они стали клиентами и покупали акции.</p>
+          <div class="space-y-4">
+            <h2 class="text-xl font-bold">Компания создана!</h2>
+            <div class="flex items-center justify-between bg-darkBgLight rounded-xl p-3">
+              <div class="text-sm truncate">${link}</div>
+              <button class="px-3 py-1.5 rounded-lg bg-darkPrimary/20 text-sm" onclick="navigator.clipboard.writeText('${link}').then(()=>toast('Скопировано!'))">
+                <i class="fa-regular fa-copy mr-1"></i>Копировать
+              </button>
+            </div>
+            <p class="text-sm text-darkMuted">Поделитесь с друзьями, чтобы они стали клиентами и покупали акции.</p>
+          </div>
         `);
         state.balance = result.updated_balance; // Update balance if cost deducted
         updateHeader();
@@ -965,16 +989,39 @@
       const c = result.company;
 
       openModal(`
-        <h3 class="font-bold text-lg mb-4">${c.name}</h3>
-        <div class="space-y-3">
-          <div>Клиенты: ${c.clients_count}</div>
-          <div>Доступно акций: ${c.available_shares}</div>
-          <div>Ожидающие акции: ${c.pending_shares}</div>
-          <div>Цена акции: ${fmt(c.share_price)}</div>
-          <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary text-white" ${c.pending_shares > 0 ? `onclick="issueShares(${id})"` : 'disabled'}>Выпустить ожидающие акции</button>
-          <div class="flex items-center">
-            <input id="new-price" type="number" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Новая цена">
-            <button class="px-4 py-3 rounded-r-xl bg-darkPrimary text-white" onclick="setPrice(${id})">Установить</button>
+        <div class="space-y-4">
+          <h2 class="font-bold text-xl mb-1">${c.name}</h2>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-darkBgLight rounded-xl p-3">
+              <div class="text-darkMuted text-sm mb-1">Клиенты</div>
+              <div class="font-semibold text-lg">${c.clients_count}</div>
+            </div>
+            <div class="bg-darkBgLight rounded-xl p-3">
+              <div class="text-darkMuted text-sm mb-1">Цена акции</div>
+              <div class="font-semibold text-lg text-darkPrimary">${fmt(c.share_price)}</div>
+            </div>
+            <div class="bg-darkBgLight rounded-xl p-3">
+              <div class="text-darkMuted text-sm mb-1">Доступно акций</div>
+              <div class="font-semibold text-lg">${c.available_shares}</div>
+            </div>
+            <div class="bg-darkBgLight rounded-xl p-3">
+              <div class="text-darkMuted text-sm mb-1">Ожидающие акции</div>
+              <div class="font-semibold text-lg">${c.pending_shares}</div>
+            </div>
+          </div>
+          <div class="bg-darkBgLight rounded-xl p-3">
+            <div class="font-semibold mb-2 flex items-center"><i class="fa-solid fa-print mr-2 text-darkSecondary"></i>Выпуск акций</div>
+            <div class="text-xs text-darkMuted mb-2">Ожидающие: ${c.pending_shares}</div>
+            <button class="w-full py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" ${c.pending_shares > 0 ? `onclick="issueShares(${id})"` : 'disabled'}>Выпустить ожидающие акции</button>
+          </div>
+          <div class="bg-darkBgLight rounded-xl p-3">
+            <div class="font-semibold mb-2 flex items-center"><i class="fa-solid fa-dollar-sign mr-2 text-darkPrimary"></i>Установка цены</div>
+            <div class="flex items-center gap-2">
+              <input id="new-price-${id}" type="number" class="flex-1 bg-darkCard border border-darkBorder rounded-lg px-3 py-2" placeholder="Новая цена">
+              <button class="px-3 py-2 rounded-lg bg-darkPrimary hover:bg-darkPrimaryHover text-white" onclick="setPrice(${id})">
+                Установить
+              </button>
+            </div>
           </div>
         </div>
       `);
@@ -995,7 +1042,8 @@
   }
 
   async function setPrice(id) {
-    const price = parseFloat(document.getElementById('new-price').value);
+    const priceInput = document.getElementById(`new-price-${id}`);
+    const price = parseFloat(priceInput.value);
     if (isNaN(price) || price <= 0) return toast('Неверная цена', 'error');
 
     try {
@@ -1075,16 +1123,34 @@
 
       let html = '<div class="space-y-4">';
       companies.forEach(c => {
+        const isOwn = c.owner_id === state.user.id;
+        const ownClass = isOwn ? 'border-darkSecondary border-2' : '';
+        const ownText = isOwn ? '<span class="pill ml-2">Ваш бизнес</span>' : '';
         html += `
-          <div class="card p-5">
-            <h3 class="font-bold mb-2">${c.name}</h3>
-            <p>Владелец: @${c.owner_username}</p>
-            <p>Цена: ${fmt(c.share_price)} DINO</p>
-            <p>Доступно: ${c.available_shares}</p>
-            <p>Клиенты: ${c.clients_count}</p>
-            <div class="flex mt-3">
-              <input id="buy-amt-${c.id}" type="number" min="1" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
-              <button class="px-4 py-3 rounded-r-xl bg-darkPrimary text-white" onclick="buyShares(${c.id})">Купить</button>
+          <div class="card p-5 ${ownClass}">
+            <div class="flex items-center justify-between mb-4">
+              <div class="font-semibold">${c.name}${ownText}</div>
+              <div class="text-lg font-bold text-darkPrimary">Цена: ${fmt(c.share_price)}</div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+              <div class="bg-darkBgLight rounded-xl p-3">
+                <div class="text-darkMuted mb-1">Клиенты</div>
+                <div class="font-semibold">${c.clients_count}</div>
+              </div>
+              <div class="bg-darkBgLight rounded-xl p-3">
+                <div class="text-darkMuted mb-1">Доступно</div>
+                <div class="font-semibold">${c.available_shares}</div>
+              </div>
+              <div class="bg-darkBgLight rounded-xl p-3">
+                <div class="text-darkMuted mb-1">Владелец</div>
+                <div class="font-semibold">@${c.owner_username}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="buy-amt-${c.id}" type="number" min="1" class="flex-1 bg-darkBgLight border border-darkBorder rounded-xl px-3 py-2" placeholder="Количество">
+              <button class="px-4 py-2.5 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white" onclick="buyShares(${c.id})">
+                Купить
+              </button>
             </div>
           </div>
         `;
@@ -1133,26 +1199,48 @@
       if (!result.success) return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
       const holdings = result.holdings;
 
-      let html = '<div class="space-y-5"><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Акции</h3>';
+      let html = '<div class="space-y-5"><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Акции</h3><div class="space-y-4">';
       if (holdings.length === 0) {
-        html += 'Нет акций в портфеле';
+        html += '<div class="text-center py-4 text-darkMuted">Нет акций в портфеле</div>';
       } else {
         holdings.forEach(h => {
+          const value = h.amount * h.current_price;
+          const pnl = value - (h.amount * h.purchase_price); // Assuming purchase_price is available; adjust if needed
+          const pnlClass = pnl >= 0 ? 'text-darkPrimary' : 'text-darkDanger';
           html += `
-            <div class="mb-4">
-              <h4 class="font-bold">${h.company_name}</h4>
-              <p>Количество: ${h.amount}</p>
-              <p>Текущая цена: ${fmt(h.current_price)}</p>
-              <p>Значение: ${fmt(h.amount * h.current_price)}</p>
-              <div class="flex mt-2">
-                <input id="sell-amt-${h.id}" type="number" min="1" max="${h.amount}" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
-                <button class="px-4 py-3 rounded-r-xl bg-darkDanger text-white" onclick="sellShares(${h.id})">Продать</button>
+            <div class="bg-darkBgLight rounded-xl p-4">
+              <div class="flex items-center justify-between mb-3">
+                <div class="font-semibold">${h.company_name}</div>
+              </div>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div class="text-darkMuted">Количество</div>
+                  <div class="font-semibold">${h.amount}</div>
+                </div>
+                <div>
+                  <div class="text-darkMuted">Текущая цена</div>
+                  <div class="font-semibold">${fmt(h.current_price)}</div>
+                </div>
+                <div>
+                  <div class="text-darkMuted">Значение</div>
+                  <div class="font-semibold">${fmt(value)}</div>
+                </div>
+                <div>
+                  <div class="text-darkMuted">P/L</div>
+                  <div class="font-semibold ${pnlClass}">${fmt(pnl)}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 mt-3">
+                <input id="sell-amt-${h.id}" type="number" min="1" max="${h.amount}" class="flex-1 bg-darkCard border border-darkBorder rounded-lg px-3 py-2" placeholder="Количество">
+                <button class="px-3 py-2 rounded-lg bg-darkDanger hover:bg-darkDanger text-white" onclick="sellShares(${h.id})">
+                  Продать
+                </button>
               </div>
             </div>
           `;
         });
       }
-      html += '</div><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>Нет крипты в портфеле</div></div>';
+      html += '</div></div><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Криптовалюта</h3><div class="text-center py-4 text-darkMuted">Нет крипты в портфеле</div></div></div>';
       return html;
     } catch (err) {
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
