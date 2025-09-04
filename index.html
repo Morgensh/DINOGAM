@@ -422,7 +422,7 @@
   /*********************
    * Core Game State & API
    *********************/
-  const VERSION = 6;
+  const VERSION = 6; // Updated version
   const LS_KEY = "dinogame_v6_state";
   const THEME_KEY = "dinogame_v6_theme";
 
@@ -434,6 +434,8 @@
   const ECON = {
     CLICK_INC: 1.5,
     CLICK_COST_MULT: 1.6,
+    COMPANY_COSTS: [0, 1000, 5000], // First free, second 1000, third 5000
+    COMPANY_COOLDOWN: 8 * 60 * 60 * 1000 // 8 hours in ms
   };
 
   const state = {
@@ -462,8 +464,7 @@
     lastTick: Date.now(),
     isGuest: false,
     saveInProgress: false,
-    isMod: false,
-    initialRef: null
+    startParam: Telegram.WebApp.initDataUnsafe.start_param || null
   };
 
   // Elements
@@ -498,7 +499,7 @@
       return await response.json();
     } catch (error) {
       console.error('API call failed:', error);
-      toast(error.message, 'error');
+      toast('Ошибка связи с сервером', 'error');
       throw error;
     }
   }
@@ -506,13 +507,6 @@
   async function initUser() {
     try {
       let userData = {};
-
-      // Parse URL for ref
-      const urlParams = new URLSearchParams(window.location.search);
-      const ref = urlParams.get('ref');
-      if (ref && ref.startsWith('comp_')) {
-        state.initialRef = parseInt(ref.slice(5));
-      }
 
       // Check if running in Telegram
       if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe.user) {
@@ -539,8 +533,10 @@
 
       if (result.success) {
         updateStateFromUser(result.user);
-        state.isMod = result.user.username === 'dopoldodo';
         toast('Аккаунт загружен!');
+        if (state.startParam && state.startParam.startsWith('company_')) {
+          setTab('investments');
+        }
         return result.user;
       } else {
         throw new Error(result.error);
@@ -862,15 +858,15 @@
   /*********************
    * Business
    *********************/
-  let businessTab = "companies";
+  let businessTab = "company";
 
-  function renderBusiness() {
+  async function renderBusiness() {
     $content().innerHTML = `
       <section class="space-y-5">
         <div class="card p-2">
           <div class="grid grid-cols-3 gap-2">
-            <button class="tab-btn ${businessTab==='companies'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('companies')">
-              <i class="fa-solid fa-building mr-2"></i>Бизнес
+            <button class="tab-btn ${businessTab==='company'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('company')">
+              <i class="fa-solid fa-building mr-2"></i>Компания
             </button>
             <button class="tab-btn ${businessTab==='crypto'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('crypto')">
               <i class="fa-solid fa-coins mr-2"></i>Крипта
@@ -881,148 +877,140 @@
           </div>
         </div>
 
-        ${businessTab==='companies' ? companiesPanelHTML() : businessTab==='crypto' ? cryptoPanelHTML() : referralsPanelHTML()}
+        ${businessTab==='company' ? await companyPanelHTML() : businessTab==='crypto' ? cryptoPanelHTML() : referralsPanelHTML()}
       </section>
     `;
   }
 
   function setBusinessTab(t){ businessTab=t; renderBusiness(); }
 
-  async function companiesPanelHTML(){
-    const result = await apiCall(`/my_companies/${state.user.id}`);
-    const companies = result.companies || [];
+  async function companyPanelHTML(){
+    if (state.isGuest) {
+      return '<div class="text-center py-10 card"><p>Функция недоступна в гостевом режиме</p></div>';
+    }
 
-    let html = `
-      <div class="space-y-5">
-        <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="openCreateCompanyModal()">
-          Создать компанию
-        </button>
-    `;
+    try {
+      const result = await apiCall(`/companies?owner_id=${state.user.id}`);
+      if (!result.success) {
+        return '<div class="text-center py-10 card"><p>Ошибка загрузки компаний</p></div>';
+      }
+      const companies = result.companies;
 
-    if (companies.length === 0) {
-      html += `<div class="text-center py-10 card"><i class="fa-regular fa-building text-4xl text-darkMuted mb-3"></i><p>Ещё нет компаний</p></div>`;
-    } else {
-      companies.forEach(comp => {
+      let html = '<div class="space-y-4">';
+      if (companies.length < 3) {
         html += `
-          <button class="card p-5 w-full text-left" onclick="openCompanyModal(${comp.id}, true)">
-            <h3 class="font-bold">${comp.name} <span class="pill">Ваша</span></h3>
-            <p class="text-sm text-darkMuted">Клиенты: ${comp.clients_count} | Акции: ${fmt(comp.share_price)}</p>
+          <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="createCompany()">
+            Создать компанию
+          </button>
+        `;
+      }
+      companies.forEach(c => {
+        html += `
+          <button class="w-full text-left px-4 py-3 rounded-xl bg-darkCard hover:bg-darkCardHover" onclick="viewCompany(${c.id})">
+            ${c.name} - Клиенты: ${c.clients_count}
           </button>
         `;
       });
+      html += '</div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
     }
-
-    html += `</div>`;
-    return html;
   }
 
-  function openCreateCompanyModal() {
+  function createCompany() {
     openModal(`
-      <h2 class="text-xl font-bold mb-4">Создать компанию</h2>
-      <p class="text-sm text-darkMuted mb-4">Мы за традиционные ценности, пожалуйста, не используйте оскорбительные или непристойные названия. Нарушители будут заблокированы.</p>
-      <input id="company-name" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Название (только английские буквы)">
-      <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="createCompany()">Создать</button>
+      <h3 class="font-bold text-lg mb-4">Создать компанию</h3>
+      <input id="company-name" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Уникальное название">
+      <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="doCreateCompany()">
+        Создать
+      </button>
     `);
   }
 
-  async function createCompany() {
+  async function doCreateCompany() {
     const name = document.getElementById('company-name').value.trim();
-    if (!/^[a-zA-Z]+$/.test(name)) return toast('Название только английскими буквами', 'error');
+    if (!name) return toast('Введите название', 'error');
+
     try {
       const result = await apiCall('/companies', {
         method: 'POST',
-        body: JSON.stringify({ name, user_id: state.user.id })
+        body: JSON.stringify({ name, owner_id: state.user.id })
       });
       if (result.success) {
         closeModal();
         toast('Компания создана!');
+        const link = `t.me/dinosav_bot?start=company_${result.company.id}`;
+        openModal(`
+          <h3 class="font-bold text-lg mb-4">Компания создана!</h3>
+          <p class="mb-4">Ссылка: ${link}</p>
+          <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary text-white" onclick="navigator.clipboard.writeText('${link}').then(()=>toast('Скопировано!'))">
+            Скопировать
+          </button>
+          <p class="text-sm text-darkMuted mt-4">Поделитесь с друзьями, чтобы они стали клиентами и покупали акции.</p>
+        `);
+        state.balance = result.updated_balance; // Update balance if cost deducted
+        updateHeader();
         renderBusiness();
+      } else {
+        toast(result.error, 'error');
       }
-    } catch (e) {}
+    } catch (err) {}
   }
 
-  async function openCompanyModal(id, isOwn) {
-    const result = await apiCall(`/companies?search=&id=${id}`); // Hack to get single
-    const comp = result.companies[0];
-    if (!comp) return;
+  async function viewCompany(id) {
+    try {
+      const result = await apiCall(`/companies/${id}`);
+      if (!result.success) return toast('Ошибка', 'error');
+      const c = result.company;
 
-    let html = `
-      <h2 class="text-xl font-bold mb-4">${comp.name}${isOwn ? ' <span class="pill">Ваша</span>' : ''}</h2>
-      <p>Владелец: @${comp.owner_username}</p>
-      <p>Клиенты: ${comp.clients_count}</p>
-      <p>Цена акции: ${fmt(comp.share_price)}</p>
-      <p>Доступно акций: ${comp.released_shares - comp.outstanding_shares}</p>
-      <p>Баланс компании: ${fmt(comp.balance)}</p>
-    `;
-
-    if (isOwn) {
-      const availableRelease = comp.pending_release;
-      html += `
-        <p>Можно выпустить: ${availableRelease}</p>
-        ${availableRelease > 0 ? `<button class="w-full px-4 py-3 rounded-xl bg-darkSecondary text-black font-medium mb-4" onclick="releaseShares(${id})">Выпустить акции</button>` : ''}
-        <div class="bg-darkBgLight p-3 rounded-xl mb-4">
-          <p class="text-sm text-darkMuted mb-2">Реферальная ссылка</p>
-          <input id="ref-link" class="w-full bg-transparent" value="${window.location.origin + window.location.pathname + '?ref=comp_' + id}" readonly>
-          <button onclick="copyRefLink()">Копировать</button>
+      openModal(`
+        <h3 class="font-bold text-lg mb-4">${c.name}</h3>
+        <div class="space-y-3">
+          <div>Клиенты: ${c.clients_count}</div>
+          <div>Доступно акций: ${c.available_shares}</div>
+          <div>Ожидающие акции: ${c.pending_shares}</div>
+          <div>Цена акции: ${fmt(c.share_price)}</div>
+          <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary text-white" ${c.pending_shares > 0 ? `onclick="issueShares(${id})"` : 'disabled'}>Выпустить ожидающие акции</button>
+          <div class="flex items-center">
+            <input id="new-price" type="number" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Новая цена">
+            <button class="px-4 py-3 rounded-r-xl bg-darkPrimary text-white" onclick="setPrice(${id})">Установить</button>
+          </div>
         </div>
-        <button class="w-full px-4 py-3 rounded-xl bg-darkDanger text-white font-medium" onclick="confirmDeleteCompany(${id})">Удалить компанию</button>
-      `;
-    }
-
-    openModal(html);
+      `);
+    } catch (err) {}
   }
 
-  function copyRefLink() {
-    const input = document.getElementById('ref-link');
-    input.select();
-    document.execCommand('copy');
-    toast('Ссылка скопирована!');
-  }
-
-  async function releaseShares(id) {
+  async function issueShares(id) {
     try {
-      const result = await apiCall(`/companies/${id}/release`, {
-        method: 'POST',
-        body: JSON.stringify({ user_id: state.user.id })
-      });
+      const result = await apiCall(`/companies/${id}/issue`, { method: 'POST' });
       if (result.success) {
-        closeModal();
         toast('Акции выпущены!');
-        renderBusiness();
+        closeModal();
+        viewCompany(id); // Refresh modal
+      } else {
+        toast(result.error, 'error');
       }
-    } catch (e) {}
+    } catch (err) {}
   }
 
-  function confirmDeleteCompany(id, confirm=0) {
-    if (confirm === 0) {
-      openModal(`
-        <h2 class="text-xl font-bold mb-4">Удалить компанию?</h2>
-        <p class="mb-4">Это действие нельзя отменить. Подтвердите удаление.</p>
-        <button class="w-full px-4 py-3 rounded-xl bg-darkDanger text-white font-medium mb-2" onclick="confirmDeleteCompany(${id}, 1)">Подтвердить</button>
-        <button class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder" onclick="closeModal()">Отмена</button>
-      `);
-    } else if (confirm === 1) {
-      openModal(`
-        <h2 class="text-xl font-bold mb-4">Ещё раз подтвердить</h2>
-        <p class="mb-4">Вы уверены?</p>
-        <button class="w-full px-4 py-3 rounded-xl bg-darkDanger text-white font-medium mb-2" onclick="deleteCompany(${id})">Да, удалить</button>
-        <button class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder" onclick="closeModal()">Отмена</button>
-      `);
-    }
-  }
+  async function setPrice(id) {
+    const price = parseFloat(document.getElementById('new-price').value);
+    if (isNaN(price) || price <= 0) return toast('Неверная цена', 'error');
 
-  async function deleteCompany(id) {
     try {
-      const result = await apiCall(`/companies/${id}`, {
-        method: 'DELETE',
-        body: JSON.stringify({ user_id: state.user.id })
+      const result = await apiCall(`/companies/${id}/set_price`, {
+        method: 'POST',
+        body: JSON.stringify({ price })
       });
       if (result.success) {
+        toast('Цена установлена!');
         closeModal();
-        toast('Компания удалена');
-        renderBusiness();
+        viewCompany(id);
+      } else {
+        toast(result.error, 'error');
       }
-    } catch (e) {}
+    } catch (err) {}
   }
 
   function cryptoPanelHTML(){
@@ -1052,16 +1040,8 @@
    * Investments
    *********************/
   let invTab = "stocks";
-  let searchQuery = '';
 
   async function renderInvestments(){
-    if (state.initialRef) {
-      invTab = 'stocks';
-      const ref = state.initialRef;
-      state.initialRef = null;
-      openBuyModal(ref);
-    }
-
     $content().innerHTML = `
       <section class="space-y-5">
         <div class="card p-2">
@@ -1086,70 +1066,55 @@
   function setInvTab(t){ invTab=t; renderInvestments(); }
 
   async function stocksMarketHTML(){
-    let html = `
-      <div class="space-y-4">
-        <input id="stock-search" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Поиск по названию" value="${searchQuery}" oninput="searchStocks(this.value)">
-    `;
+    if (state.isGuest) return '<div class="text-center py-10 card"><p>Функция недоступна в гостевом режиме</p></div>';
 
-    const result = await apiCall(`/companies${searchQuery ? '?search=' + searchQuery : ''}`);
-    const companies = result.companies || [];
+    try {
+      const result = await apiCall('/market/companies');
+      if (!result.success) return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+      const companies = result.companies;
 
-    if (companies.length === 0) {
-      html += `<div class="card p-5 text-center py-10"><i class="fa-regular fa-building text-4xl text-darkMuted mb-3"></i><p>Нет компаний на рынке</p></div>`;
-    } else {
-      companies.forEach(comp => {
-        const isOwn = comp.owner_id === state.user.id;
+      let html = '<div class="space-y-4">';
+      companies.forEach(c => {
         html += `
-          <div class="card p-5 ${isOwn ? 'border-darkPrimary' : ''}">
-            <div class="flex justify-between items-start">
-              <div>
-                <h3 class="font-bold">${comp.name}${isOwn ? ' <span class="pill">Ваша</span>' : ''}</h3>
-                <p class="text-sm text-darkMuted">Владелец: @${comp.owner_username}</p>
-                <p class="text-sm text-darkMuted">Клиенты: ${comp.clients_count}</p>
-                <p class="text-sm text-darkMuted">Цена: ${fmt(comp.share_price)} DINO</p>
-              </div>
-              <div class="flex flex-col gap-2">
-                <button class="px-4 py-2 rounded-xl bg-darkPrimary text-white" onclick="openBuyModal(${comp.id})">Купить</button>
-                ${state.isMod ? `<button class="px-4 py-2 rounded-xl bg-darkDanger text-white" onclick="confirmDeleteCompany(${comp.id}, 0, true)">Удалить</button>` : ''}
-              </div>
+          <div class="card p-5">
+            <h3 class="font-bold mb-2">${c.name}</h3>
+            <p>Владелец: @${c.owner_username}</p>
+            <p>Цена: ${fmt(c.share_price)} DINO</p>
+            <p>Доступно: ${c.available_shares}</p>
+            <p>Клиенты: ${c.clients_count}</p>
+            <div class="flex mt-3">
+              <input id="buy-amt-${c.id}" type="number" min="1" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
+              <button class="px-4 py-3 rounded-r-xl bg-darkPrimary text-white" onclick="buyShares(${c.id})">Купить</button>
             </div>
           </div>
         `;
       });
+      html += '</div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
     }
-
-    html += `</div>`;
-    return html;
   }
 
-  function searchStocks(value) {
-    searchQuery = value;
-    renderInvestments();
-  }
-
-  function openBuyModal(compId) {
-    openModal(`
-      <h2 class="text-xl font-bold mb-4">Купить акции</h2>
-      <input id="buy-amount" type="number" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Количество акций">
-      <button class="w-full px-4 py-3 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="buyShares(${compId})">Купить</button>
-    `);
-  }
-
-  async function buyShares(compId) {
-    const amount = parseInt(document.getElementById('buy-amount').value);
+  async function buyShares(companyId) {
+    const amtInput = document.getElementById(`buy-amt-${companyId}`);
+    const amount = parseInt(amtInput.value);
     if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
+
     try {
-      const result = await apiCall(`/companies/${compId}/buy`, {
+      const result = await apiCall('/market/buy', {
         method: 'POST',
-        body: JSON.stringify({ user_id: state.user.id, amount })
+        body: JSON.stringify({ company_id: companyId, amount, user_id: state.user.id })
       });
       if (result.success) {
-        closeModal();
         toast('Акции куплены!');
-        await updateBalance();
+        state.balance = result.updated_balance;
+        updateHeader();
         renderInvestments();
+      } else {
+        toast(result.error, 'error');
       }
-    } catch (e) {}
+    } catch (err) {}
   }
 
   function cryptoMarketHTML(){
@@ -1161,84 +1126,64 @@
   }
 
   async function walletHTML(){
-    const result = await apiCall(`/my_shares/${state.user.id}`);
-    const shares = result.shares || [];
+    if (state.isGuest) return '<div class="text-center py-10 card"><p>Функция недоступна в гостевом режиме</p></div>';
 
-    let html = `
-      <div class="space-y-5">
-        <div class="card p-5">
-          <h3 class="font-semibold text-lg mb-4">Мои акции</h3>
-    `;
-
-    if (shares.length === 0) {
-      html += `Нет акций в портфеле`;
-    } else {
-      shares.forEach(s => {
-        html += `
-          <div class="mb-4">
-            <h4 class="font-bold">${s.name}</h4>
-            <p>Количество: ${s.amount}</p>
-            <p>Средняя цена: ${fmt(s.avg_price)}</p>
-            <p>Текущая цена: ${fmt(s.share_price)}</p>
-            <p>Прибыль: ${fmt(s.profit, 2)} DINO</p>
-            <button class="px-4 py-2 rounded-xl bg-darkDanger text-white mt-2" onclick="openSellModal(${s.company_id}, ${s.amount})">Продать</button>
-          </div>
-        `;
-      });
-    }
-
-    html += `
-        </div>
-
-        <div class="card p-5">
-          <h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>
-          Нет крипты в портфеле
-        </div>
-      </div>
-    `;
-    return html;
-  }
-
-  function openSellModal(compId, maxAmount) {
-    openModal(`
-      <h2 class="text-xl font-bold mb-4">Продать акции</h2>
-      <input id="sell-amount" type="number" max="${maxAmount}" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Количество">
-      <button class="w-full px-4 py-3 rounded-xl bg-darkDanger text-white font-medium" onclick="sellShares(${compId})">Продать</button>
-    `);
-  }
-
-  async function sellShares(compId) {
-    const amount = parseInt(document.getElementById('sell-amount').value);
-    if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
     try {
-      const result = await apiCall(`/companies/${compId}/sell`, {
+      const result = await apiCall(`/holdings?user_id=${state.user.id}`);
+      if (!result.success) return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+      const holdings = result.holdings;
+
+      let html = '<div class="space-y-5"><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Акции</h3>';
+      if (holdings.length === 0) {
+        html += 'Нет акций в портфеле';
+      } else {
+        holdings.forEach(h => {
+          html += `
+            <div class="mb-4">
+              <h4 class="font-bold">${h.company_name}</h4>
+              <p>Количество: ${h.amount}</p>
+              <p>Текущая цена: ${fmt(h.current_price)}</p>
+              <p>Значение: ${fmt(h.amount * h.current_price)}</p>
+              <div class="flex mt-2">
+                <input id="sell-amt-${h.id}" type="number" min="1" max="${h.amount}" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
+                <button class="px-4 py-3 rounded-r-xl bg-darkDanger text-white" onclick="sellShares(${h.id})">Продать</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+      html += '</div><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>Нет крипты в портфеле</div></div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+    }
+  }
+
+  async function sellShares(holdingId) {
+    const amtInput = document.getElementById(`sell-amt-${holdingId}`);
+    const amount = parseInt(amtInput.value);
+    if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
+
+    try {
+      const result = await apiCall('/market/sell', {
         method: 'POST',
-        body: JSON.stringify({ user_id: state.user.id, amount })
+        body: JSON.stringify({ holding_id: holdingId, amount, user_id: state.user.id })
       });
       if (result.success) {
-        closeModal();
         toast('Акции проданы!');
-        await updateBalance();
+        state.balance = result.updated_balance;
+        updateHeader();
         renderInvestments();
+      } else {
+        toast(result.error, 'error');
       }
-    } catch (e) {}
+    } catch (err) {}
   }
 
   /*********************
    * Profile
    *********************/
-  async function renderProfile() {
-    let modHtml = '';
-    if (state.isMod) {
-      modHtml = `
-        <div class="card p-5">
-          <h3 class="font-semibold mb-4">Модерация</h3>
-          <input id="user-search" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Поиск пользователей по username" oninput="searchUsers(this.value)">
-          <div id="mod-users-list" class="space-y-2"></div>
-        </div>
-      `;
-    }
-
+  function renderProfile() {
     $content().innerHTML = `
       <section class="space-y-6">
         <div class="card p-5">
@@ -1292,56 +1237,14 @@
             </div>
           </div>
         </div>
-
-        ${modHtml}
       </section>
     `;
-  }
-
-  async function searchUsers(query) {
-    if (!query) {
-      document.getElementById('mod-users-list').innerHTML = '';
-      return;
-    }
-    const result = await apiCall(`/search_users?query=${query}&mod_id=${state.user.id}`);
-    const users = result.users || [];
-    let html = '';
-    users.forEach(u => {
-      html += `
-        <div class="flex justify-between items-center">
-          <span>@${u.username}</span>
-          <button class="px-4 py-2 rounded-xl bg-darkDanger text-white" onclick="banUser(${u.id})">${u.banned_at ? 'Разбанить' : 'Банить'}</button>
-        </div>
-      `;
-    });
-    document.getElementById('mod-users-list').innerHTML = html;
-  }
-
-  async function banUser(userId) {
-    try {
-      const result = await apiCall(`/ban_user/${userId}`, {
-        method: 'POST',
-        body: JSON.stringify({ mod_id: state.user.id })
-      });
-      if (result.success) {
-        toast('Пользователь забанен');
-        // Refresh search
-        const input = document.getElementById('user-search');
-        searchUsers(input.value);
-      }
-    } catch (e) {}
   }
 
   function toggleShowUsername() {
     state.user.show_username = !state.user.show_username;
     save();
     renderProfile();
-  }
-
-  async function updateBalance() {
-    const user = await apiCall(`/user/${state.user.id}`);
-    state.balance = user.user.balance;
-    updateHeader();
   }
 
   /*********************
