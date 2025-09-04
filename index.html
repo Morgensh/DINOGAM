@@ -1720,21 +1720,83 @@
       const startParam = tg.initDataUnsafe.start_param || '';
 
       try {
-        // Authenticate and get token
-        const authRes = await fetch(API_BASE + '/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
-        });
-        if (!authRes.ok) throw new Error(await authRes.text());
-        const { token } = await authRes.json();
-        localStorage.setItem(TOKEN_KEY, token);
+        // Подготовим тело запроса: либо из initData, либо из initDataUnsafe.user
+let authBody;
+try {
+  const initData = window.Telegram.WebApp.initData || '';
+  const params = new URLSearchParams(initData);
+  const userParam = params.get('user');
+  const parsedUser = userParam ? JSON.parse(userParam) : (window.Telegram?.WebApp?.initDataUnsafe?.user || {});
+  if (parsedUser && (parsedUser.id || parsedUser.username)) {
+    authBody = {
+      telegram_id: String(parsedUser.id || ''),
+      username: parsedUser.username || 'Guest',
+      first_name: parsedUser.first_name || '',
+      last_name: parsedUser.last_name || '',
+      avatar_url: parsedUser.photo_url || ''
+    };
+  } else {
+    // если ничего нет — гостевой режим
+    authBody = { is_guest: true };
+  }
+} catch (e) {
+  authBody = { is_guest: true };
+}
 
-        state.user = await api.get('/me');
-        if (tgUser) {
-          await api.post('/user/update-tg', {tgData: tgUser});
-          state.user = await api.get('/me');
-        }
+// Отправляем на сервер поля, которые сервер ожидал
+const tgUser = Telegram.WebApp.initDataUnsafe?.user || null;
+
+let authBody;
+if (tgUser) {
+  authBody = {
+    telegram_id: String(tgUser.id),
+    username: tgUser.username || 'Guest',
+    first_name: tgUser.first_name || '',
+    last_name: tgUser.last_name || '',
+    avatar_url: tgUser.photo_url || ''
+  };
+} else {
+  // fallback: гость
+  authBody = { is_guest: true };
+}
+
+const authRes = await fetch(API_BASE + '/auth', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(authBody)
+});
+
+if (!authRes.ok) throw new Error(await authRes.text());
+const authJson = await authRes.json();
+
+// Если сервер возвращает token — сохраняем, иначе используем возвращённого user
+if (authJson.token) {
+  localStorage.setItem(TOKEN_KEY, authJson.token);
+}
+if (authJson.user) {
+  state.user = authJson.user;
+}
+
+// Попробуем получить /me только если ещё нет user
+if (!state.user) {
+  try { state.user = await api.get('/me'); } catch (e) { /* /me может отсутствовать на бэке */ }
+}
+
+// Если всё ещё нет user и у нас есть parsedUser — создадим через POST /user
+if (!state.user && authBody && !authBody.is_guest && authBody.telegram_id) {
+  try {
+    const created = await fetch(API_BASE + '/user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(authBody)
+    });
+    if (created.ok) {
+      const createdJson = await created.json();
+      state.user = createdJson.user || createdJson;
+    }
+  } catch(e) { console.warn('create user failed', e); }
+}
+
         state.isAdmin = state.user.isAdmin; // Now from server
         state.economy = await api.get('/economy');
         updateHeader();
