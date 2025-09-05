@@ -62,7 +62,7 @@
   </script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Press+Start+2P&display=swap');
 
     * {
       box-sizing: border-box;
@@ -79,7 +79,7 @@
     }
 
     body.dark {
-      background-color: #0f1117;
+      background-color: #0a0c12;
       color: #f8fafc;
     }
 
@@ -89,7 +89,7 @@
     }
 
     .gradient-bg {
-      background: linear-gradient(135deg, #0f1117 0%, #1a1d26 100%);
+      background: linear-gradient(135deg, #0a0c12 0%, #161a25 100%);
     }
 
     .dino-gradient-text {
@@ -102,6 +102,7 @@
     .nav-btn.active {
       color: #facc15;
       position: relative;
+      transform: scale(1.05);
     }
 
     .nav-btn.active::after {
@@ -114,85 +115,110 @@
       height: 3px;
       background: #facc15;
       border-radius: 3px;
+      box-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
     }
 
     .tab-btn.active {
-      background: #10b981;
+      background: linear-gradient(90deg, #10b981, #34d399);
       color: #fff;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
     }
 
     .glass {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     }
 
     .card {
-      border-radius: 16px;
-      transition: all 0.3s ease;
+      border-radius: 20px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #10b981, transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover::before {
+      opacity: 1;
     }
 
     .dark .card {
-      background: #1d212c;
-      border: 1px solid #2d323d;
+      background: #1a1e2a;
+      border: 1px solid #2d3748;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
     }
 
     .light .card {
       background: #ffffff;
-      border: 1px solid #d1d5db;
+      border: 1px solid #e2e8f0;
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
 
     .card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-5px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
     }
 
     .dark .card:hover {
-      box-shadow: 0 8px 25px rgba(0,0,0,.2);
-      border-color: rgba(16,185,129,.2);
+      border-color: rgba(16,185,129,.3);
     }
 
     .light .card:hover {
-      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
       border-color: rgba(16,185,129,.2);
     }
 
     .pill {
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 20px;
       font-size: 0.75rem;
-      font-weight: 500;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
     .dark .pill {
-      background: rgba(16,185,129,.15);
+      background: linear-gradient(90deg, rgba(16,185,129,.2), rgba(16,185,129,.1));
       color: #10b981;
+      border: 1px solid rgba(16,185,129,.3);
     }
 
     .light .pill {
-      background: rgba(16,185,129,.1);
+      background: linear-gradient(90deg, rgba(16,185,129,.15), rgba(16,185,129,.05));
       color: #047857;
+      border: 1px solid rgba(16,185,129,.2);
     }
 
     .fade-in {
-      animation: fadein 0.25s ease-out;
+      animation: fadein 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .slide-in {
-      animation: slideIn 0.3s ease-out;
+      animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .coin-pop {
-      animation: coinPop 0.6s ease-out forwards;
+      animation: coinPop 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
     .progress-bar {
       overflow: hidden;
-      border-radius: 10px;
+      border-radius: 12px;
+      height: 12px;
     }
 
     .dark .progress-bar {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
     }
 
     .light .progress-bar {
@@ -202,8 +228,9 @@
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #10b981, #34d399);
-      border-radius: 10px;
-      transition: width 0.5s ease;
+      border-radius: 12px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
     }
 
     .loading {
@@ -212,24 +239,24 @@
     }
 
     @keyframes fadein {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(15px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
     @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-10px); }
+      from { opacity: 0; transform: translateX(-15px); }
       to { opacity: 1; transform: translateX(0); }
     }
 
     @keyframes coinPop {
       0% { opacity: 1; transform: translateY(0) scale(1); }
-      50% { opacity: 0.8; transform: translateY(-30px) scale(1.1); }
-      100% { opacity: 0; transform: translateY(-60px) scale(1); }
+      50% { opacity: 0.9; transform: translateY(-40px) scale(1.2); }
+      100% { opacity: 0; transform: translateY(-80px) scale(0.8); }
     }
 
     /* Mobile specific styles */
     .mobile-tab-content {
-      padding-bottom: 80px;
+      padding-bottom: 90px;
     }
 
     .mobile-bottom-nav {
@@ -238,28 +265,34 @@
       left: 0;
       right: 0;
       z-index: 50;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(15px);
+      padding: 12px 0;
+      border-top-left-radius: 25px;
+      border-top-right-radius: 25px;
     }
 
     .dark .mobile-bottom-nav {
-      background: rgba(29, 33, 44, 0.9);
-      border-top: 1px solid #2d323d;
+      background: rgba(26, 30, 42, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.3);
     }
 
     .light .mobile-bottom-nav {
-      background: rgba(255, 255, 255, 0.9);
-      border-top: 1px solid #d1d5db;
+      background: rgba(255, 255, 255, 0.95);
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.1);
     }
 
     textarea {
-      max-height: 100px;
+      max-height: 120px;
       overflow-y: auto;
       word-break: break-word;
+      border-radius: 12px;
     }
 
     .post-text {
       overflow: hidden;
-      max-height: 100px;
+      max-height: 120px;
       text-overflow: ellipsis;
     }
 
@@ -267,25 +300,97 @@
       max-height: none;
     }
 
-    /* Modal styles */
+    /* Enhanced Modal styles */
     #modal-root .modal {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0,0,0,0.85);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      z-index: 999;
+      z-index: 9999;
+      backdrop-filter: blur(5px);
     }
 
     #modal-root .modal-content {
-      background: #1d212c;
-      border: 1px solid #2d323d;
-      border-radius: 20px;
-      padding: 20px;
-      max-width: 400px; /* Уменьшили для компактности */
+      background: linear-gradient(145deg, #1a1e2a, #252a3a);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 25px;
+      padding: 30px;
+      max-width: 90%;
       width: 100%;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+      animation: modalAppear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #modal-root .modal-content::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #10b981, transparent);
+    }
+
+    @keyframes modalAppear {
+      from { opacity: 0; transform: scale(0.9) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Button enhancements */
+    button {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    input, textarea {
+      transition: all 0.2s ease;
+      border-radius: 12px;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+    }
+
+    /* Dino emoji animation */
+    .dino-emoji {
+      animation: dinoFloat 3s ease-in-out infinite;
+    }
+
+    @keyframes dinoFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* XP bar enhancement */
+    .xp-bar-container {
+      height: 10px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .xp-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #facc15, #fbbf24);
+      border-radius: 10px;
+      transition: width 0.5s ease;
+      box-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
     }
   </style>
 </head>
@@ -294,23 +399,35 @@
   <!-- Mobile Layout (only, desktop removed) -->
   <div>
     <!-- Header -->
-    <header class="glass p-4 sticky top-0 z-40 border-b border-darkBorder">
+    <header class="glass p-4 sticky top-0 z-40 border-b border-darkBorder backdrop-blur-xl">
       <div class="flex items-center justify-between">
         <div class="flex items-center">
-          <img id="mobile-avatar" src="https://i.pravatar.cc/150?img=10" class="w-10 h-10 rounded-full mr-3">
+          <img id="mobile-avatar" src="https://i.pravatar.cc/150?img=10" class="w-12 h-12 rounded-full mr-3 border-2 border-darkPrimary shadow-lg">
           <div>
-            <div class="font-bold"><span id="mobile-username">DinoUser</span></div>
-            <div class="text-xs text-darkMuted"><span id="mobile-balance">0</span> DINO</div>
-            <div class="text-xs text-darkMuted"><span id="mobile-dps">0</span>/сек</div>
+            <div class="font-bold text-lg"><span id="mobile-username">DinoUser</span></div>
+            <div class="text-xs text-darkMuted flex items-center">
+              <i class="fas fa-coins text-yellow-400 mr-1"></i>
+              <span id="mobile-balance">0</span> DINO
+            </div>
+            <div class="text-xs text-darkMuted flex items-center">
+              <i class="fas fa-bolt text-green-400 mr-1"></i>
+              <span id="mobile-dps">0</span>/сек
+            </div>
           </div>
         </div>
         <div class="flex items-center">
           <div class="mr-3 text-right">
-            <div class="text-xs text-darkMuted">Ур. <span id="mobile-level">1</span></div>
-            <div class="text-xs text-darkPrimary" id="mobile-xp-text">0/150</div>
+            <div class="text-xs text-darkMuted flex items-center justify-end">
+              <i class="fas fa-star text-yellow-400 mr-1"></i>
+              Ур. <span id="mobile-level">1</span>
+            </div>
+            <div class="xp-bar-container w-20 mt-1">
+              <div class="xp-bar-fill" id="mobile-xp-bar" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-darkPrimary mt-1" id="mobile-xp-text">0/150</div>
           </div>
-          <div class="w-8 h-8 rounded-full bg-darkCard flex items-center justify-center">
-            <i class="fa-regular fa-user text-sm"></i>
+          <div class="w-10 h-10 rounded-full bg-darkCard flex items-center justify-center shadow-lg border border-darkBorder">
+            <i class="fa-regular fa-user text-lg"></i>
           </div>
         </div>
       </div>
@@ -320,26 +437,26 @@
     <main id="mobile-content" class="mobile-tab-content p-4 pb-20"></main>
 
     <!-- Bottom Navigation -->
-    <nav class="mobile-bottom-nav p-2 grid grid-cols-5 gap-1">
-      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="clicker">
-        <i class="fa-regular fa-hand-pointer text-lg mb-1"></i>
-        <span class="text-xs">Кликер</span>
+    <nav class="mobile-bottom-nav p-3 grid grid-cols-5 gap-2">
+      <button class="nav-btn flex flex-col items-center py-3 rounded-2xl transition-all duration-300" data-tab="clicker">
+        <i class="fa-regular fa-hand-pointer text-xl mb-1"></i>
+        <span class="text-xs font-medium">Кликер</span>
       </button>
-      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="dinonet">
-        <i class="fa-solid fa-globe text-lg mb-1"></i>
-        <span class="text-xs">ДиноНет</span>
+      <button class="nav-btn flex flex-col items-center py-3 rounded-2xl transition-all duration-300" data-tab="dinonet">
+        <i class="fa-solid fa-globe text-xl mb-1"></i>
+        <span class="text-xs font-medium">ДиноНет</span>
       </button>
-      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="business">
-        <i class="fa-solid fa-building text-lg mb-1"></i>
-        <span class="text-xs">Бизнес</span>
+      <button class="nav-btn flex flex-col items-center py-3 rounded-2xl transition-all duration-300" data-tab="business">
+        <i class="fa-solid fa-building text-xl mb-1"></i>
+        <span class="text-xs font-medium">Бизнес</span>
       </button>
-      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="investments">
-        <i class="fa-solid fa-chart-line text-lg mb-1"></i>
-        <span class="text-xs">Инвестиции</span>
+      <button class="nav-btn flex flex-col items-center py-3 rounded-2xl transition-all duration-300" data-tab="investments">
+        <i class="fa-solid fa-chart-line text-xl mb-1"></i>
+        <span class="text-xs font-medium">Инвестиции</span>
       </button>
-      <button class="nav-btn flex flex-col items-center py-2 rounded-xl transition-all" data-tab="profile">
-        <i class="fa-regular fa-user text-lg mb-1"></i>
-        <span class="text-xs">Профиль</span>
+      <button class="nav-btn flex flex-col items-center py-3 rounded-2xl transition-all duration-300" data-tab="profile">
+        <i class="fa-regular fa-user text-xl mb-1"></i>
+        <span class="text-xs font-medium">Профиль</span>
       </button>
     </nav>
   </div>
@@ -665,6 +782,8 @@
   function updateLevel() {
     $level().textContent = state.level;
     $xpText().textContent = `${Math.floor(state.xp)}/${state.xpNext}`;
+    const xpPercent = (state.xp / state.xpNext) * 100;
+    document.getElementById("mobile-xp-bar").style.width = `${xpPercent}%`;
   }
 
   /*********************
@@ -703,18 +822,22 @@
               <div class="text-sm text-darkMuted">Доход за клик</div>
               <div class="text-xl font-bold text-darkPrimary">${fmt(state.perClick)} DINO</div>
             </div>
-            <button class="px-4 py-2.5 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium flex items-center" onclick="buyClick()">
+            <button class="px-4 py-3 rounded-xl bg-gradient-to-r from-darkPrimary to-emerald-500 hover:from-darkPrimaryHover hover:to-emerald-600 text-white font-bold flex items-center shadow-lg hover:shadow-xl transition-all" onclick="buyClick()">
               <i class="fa-solid fa-arrow-up mr-2"></i>+${ECON.CLICK_INC} за ${fmt(state.clickUpgradeCost)}
             </button>
           </div>
-          <div class="text-xs text-darkMuted">Всего кликов: ${state.clicks}</div>
-          ${state.isGuest ? '<div class="text-xs text-yellow-400 mt-2"><i class="fa-solid fa-exclamation-triangle mr-1"></i>Гостевой режим - прогресс не сохраняется</div>' : ''}
+          <div class="text-xs text-darkMuted flex items-center">
+            <i class="fas fa-mouse-pointer mr-1"></i>
+            Всего кликов: ${state.clicks}
+          </div>
+          ${state.isGuest ? '<div class="text-xs text-yellow-400 mt-2 flex items-center"><i class="fa-solid fa-exclamation-triangle mr-1"></i>Гостевой режим - прогресс не сохраняется</div>' : ''}
         </div>
 
-        <div id="click-area" class="card p-8 text-center active:scale-[.995] transition cursor-pointer relative overflow-hidden">
-          <div class="text-8xl mb-2 select-none leading-none animate-float">🦖</div>
-          <div class="text-lg font-medium mb-1">Кликай по динозавру</div>
+        <div id="click-area" class="card p-8 text-center active:scale-[.98] transition cursor-pointer relative overflow-hidden bg-gradient-to-br from-darkCard to-darkBgLight border-2 border-darkPrimary/30 hover:border-darkPrimary/50">
+          <div class="text-8xl mb-4 select-none leading-none dino-emoji">🦖</div>
+          <div class="text-xl font-bold mb-2">Кликай по динозавру!</div>
           <div class="text-sm text-darkMuted">Зарабатывай DINO и улучшай свою экономику</div>
+          <div class="absolute inset-0 bg-gradient-to-r from-transparent via-darkPrimary/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-1000"></div>
         </div>
       </section>
     `;
@@ -1486,3 +1609,4 @@
   </script>
 </body>
 </html>
+
