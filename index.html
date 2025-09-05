@@ -1061,28 +1061,32 @@
   }
 
   async function buyClientsStars(id) {
-    try {
-      const result = await apiCall(`/companies/${id}/create_stars_invoice`, {
-        method: 'POST',
-        body: JSON.stringify({ user_id: state.user.id })
+  try {
+    const result = await apiCall(`/companies/${id}/create_stars_invoice`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: state.user.id })
+    });
+    
+    if (result.success) {
+      Telegram.WebApp.openInvoice(result.invoice_link, (status) => {
+        if (status === 'paid') {
+          toast('Оплата успешна! Клиенты добавлены.');
+          closeModal();
+          viewCompanyDetails(id);
+        } else if (status === 'failed') {
+          toast('Ошибка оплаты', 'error');
+        } else if (status === 'cancelled') {
+          toast('Оплата отменена');
+        }
       });
-      if (result.success) {
-        Telegram.WebApp.openInvoice(result.invoice_link, (status) => {
-          if (status === 'paid') {
-            toast('Оплата успешна! Клиенты добавлены.');
-            closeModal();
-            viewCompanyDetails(id);
-          } else if (status === 'failed') {
-            toast('Ошибка оплаты', 'error');
-          } else if (status === 'cancelled') {
-            toast('Оплата отменена');
-          }
-        });
-      } else {
-        toast(result.error, 'error');
-      }
-    } catch (err) {}
+    } else {
+      toast(result.error, 'error');
+    }
+  } catch (err) {
+    console.error('Error creating invoice:', err);
+    toast('Ошибка создания счета', 'error');
   }
+}
 
   function copyText(text) {
     navigator.clipboard.writeText(text);
