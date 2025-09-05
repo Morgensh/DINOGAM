@@ -279,15 +279,27 @@
       z-index: 999;
     }
 
-    #modal-root .modal-content {
+   #modal-root .modal-content {
   background: #1d212c;
   border: 1px solid #2d323d;
   border-radius: 20px;
   padding: 20px;
-  width: 600px;        /* базовая ширина для удобного чтения чисел */
-  max-width: 95vw;     /* на мобильных ужимается по ширине экрана */
-  max-height: 85vh;    /* по высоте не больше 85% экрана */
-  overflow-y: auto;    /* скролл если контента слишком много */
+  width: 500px;        /* базовая ширина */
+  max-width: 90vw;     /* на маленьких экранах */
+  max-height: 85vh;    /* ограничение по высоте */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;           /* расстояние между блоками */
+}
+
+/* универсально для всех блоков внутри модалки */
+#modal-root .modal-content .card,
+#modal-root .modal-content .stat-block {
+  max-width: 100%;       /* чтобы не растягивались шире модалки */
+  font-size: 0.9rem;     /* текст чуть меньше */
+  padding: 12px 16px;    /* сделать компактнее */
+  border-radius: 12px;
 }
 
 
@@ -1535,5 +1547,6 @@
   </script>
 </body>
 </html>
+
 
 
