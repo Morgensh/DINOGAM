@@ -279,29 +279,28 @@
       z-index: 999;
     }
 
-   #modal-root .modal-content {
-  background: #1d212c;
-  border: 1px solid #2d323d;
-  border-radius: 20px;
-  padding: 20px;
-  width: 500px;        /* базовая ширина */
-  max-width: 90vw;     /* на маленьких экранах */
-  max-height: 85vh;    /* ограничение по высоте */
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;           /* расстояние между блоками */
-}
+    #modal-root .modal-content {
+      background: #1d212c;
+      border: 1px solid #2d323d;
+      border-radius: 20px;
+      padding: 20px;
+      width: 500px;        /* базовая ширина */
+      max-width: 90vw;     /* на маленьких экранах */
+      max-height: 85vh;    /* ограничение по высоте */
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;           /* расстояние между блоками */
+    }
 
-/* универсально для всех блоков внутри модалки */
-#modal-root .modal-content .card,
-#modal-root .modal-content .stat-block {
-  max-width: 100%;       /* чтобы не растягивались шире модалки */
-  font-size: 0.9rem;     /* текст чуть меньше */
-  padding: 12px 16px;    /* сделать компактнее */
-  border-radius: 12px;
-}
-
+    /* универсально для всех блоков внутри модалки */
+    #modal-root .modal-content .card,
+    #modal-root .modal-content .stat-block {
+      max-width: 100%;       /* чтобы не растягивались шире модалки */
+      font-size: 0.9rem;     /* текст чуть меньше */
+      padding: 12px 16px;    /* сделать компактнее */
+      border-radius: 12px;
+    }
 
   </style>
 </head>
@@ -368,9 +367,9 @@
   /*********************
    * Core Game State & API
    *********************/
-  const VERSION = 9; // Updated version
-  const LS_KEY = "dinogame_v9_state";
-  const THEME_KEY = "dinogame_v9_theme";
+  const VERSION = 10; // Updated version
+  const LS_KEY = "dinogame_v10_state";
+  const THEME_KEY = "dinogame_v10_theme";
 
   // API Configuration
   const API_BASE = 'https://dinod.ru/api';
@@ -384,7 +383,10 @@
     EMISSION_COST_PER_SHARE: 25,
     SHARES_PER_CLIENT: 50,
     BASE_SHARE_PRICE: 1,
-    LOW_SHARES_THRESHOLD: 100
+    LOW_SHARES_THRESHOLD: 100,
+    CLIENT_COST: 10000, // DINO per client
+    POST_COST: 25000, // DINO per post
+    POST_MAX_LENGTH: 280
   };
 
   const state = {
@@ -783,8 +785,9 @@
    * DinoNet
    *********************/
   let dinonetTab = "feed";
+  let dinonetRefreshInterval = null;
 
-  function renderDinoNet() {
+  async function renderDinoNet() {
     $content().innerHTML = `
       <section class="space-y-5">
         <div class="card p-2">
@@ -798,9 +801,16 @@
           </div>
         </div>
 
-        ${dinonetTab==='feed' ? feedPanelHTML() : myPostsPanelHTML()}
+        ${dinonetTab==='feed' ? await feedPanelHTML() : await myPostsPanelHTML()}
       </section>
     `;
+
+    if (dinonetRefreshInterval) clearInterval(dinonetRefreshInterval);
+    dinonetRefreshInterval = setInterval(() => {
+      if (state.currentTab === 'dinonet') {
+        renderDinoNet();
+      }
+    }, 60000); // Refresh every minute
   }
 
   function setDinoNetTab(t){
@@ -808,20 +818,128 @@
     renderDinoNet();
   }
 
-  function feedPanelHTML() {
-    return `
-      <div class="space-y-5">
-        <div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Постов пока нет</p></div>
-      </div>
-    `;
+  async function feedPanelHTML() {
+    if (state.isGuest || state.user.banned) {
+      return '<div class="text-center py-10 card"><p>Функция недоступна</p></div>';
+    }
+
+    try {
+      const result = await apiCall(`/posts?mode=feed&limit=20`);
+      if (!result.success) {
+        return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Постов пока нет</p></div>';
+      }
+      const posts = result.posts;
+
+      let html = `
+        <div class="space-y-5">
+          <button class="w-full px-4 py-5 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium text-lg" onclick="createPostModal()">
+            Создать пост
+          </button>
+      `;
+      posts.forEach(p => {
+        const ownerText = p.company_count > 0 ? `Владелец ${p.company_count} компаний` : '';
+        html += `
+          <div class="card p-4">
+            <div class="flex items-center mb-2">
+              <img src="${p.avatar_url}" class="w-8 h-8 rounded-full mr-2">
+              <div>
+                <div class="font-bold">@${p.username}</div>
+                <div class="text-xs text-darkMuted">${ownerText}</div>
+              </div>
+            </div>
+            <p class="post-text mb-2">${p.text}</p>
+            <div class="flex text-sm text-darkMuted">
+              <span class="mr-4"><i class="fa-regular fa-eye mr-1"></i>${fmt(p.views)}</span>
+              <span><i class="fa-regular fa-heart mr-1"></i>${fmt(p.likes)}</span>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Ошибка загрузки</p></div>';
+    }
   }
 
-  function myPostsPanelHTML() {
-    return `
-      <div class="space-y-4">
-        <div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Нет ваших постов</p></div>
-      </div>
-    `;
+  function createPostModal() {
+    const cost = state.user.is_moderator ? 0 : ECON.POST_COST;
+    openModal(`
+      <h2 class="font-bold text-xl mb-4">Создать пост</h2>
+      <textarea id="post-text" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Ваш текст (max ${ECON.POST_MAX_LENGTH} символов)" maxlength="${ECON.POST_MAX_LENGTH}"></textarea>
+      <div class="text-sm text-yellow-400 mb-4">Стоимость: ${fmt(cost)} DINO</div>
+      <button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="doCreatePost()">Отправить</button>
+    `);
+  }
+
+  async function doCreatePost() {
+    const text = document.getElementById('post-text').value.trim();
+    if (!text || text.length > ECON.POST_MAX_LENGTH) return toast('Неверная длина текста', 'error');
+
+    try {
+      const result = await apiCall('/posts', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: state.user.id, text })
+      });
+      if (result.success) {
+        closeModal();
+        toast('Пост создан!');
+        state.balance = result.updated_balance;
+        updateHeader();
+        renderDinoNet();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {}
+  }
+
+  async function myPostsPanelHTML() {
+    if (state.isGuest || state.user.banned) {
+      return '<div class="text-center py-10 card"><p>Функция недоступна</p></div>';
+    }
+
+    try {
+      const result = await apiCall(`/posts?mode=my&user_id=${state.user.id}&limit=50`);
+      if (!result.success) {
+        return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Нет ваших постов</p></div>';
+      }
+      const posts = result.posts;
+
+      let html = '<div class="space-y-4">';
+      posts.forEach(p => {
+        html += `
+          <div class="card p-4">
+            <p class="post-text mb-2">${p.text}</p>
+            <div class="flex text-sm text-darkMuted mb-2">
+              <span class="mr-4"><i class="fa-regular fa-eye mr-1"></i>${fmt(p.views)}</span>
+              <span><i class="fa-regular fa-heart mr-1"></i>${fmt(p.likes)}</span>
+            </div>
+            <button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center" onclick="deletePost('${p.id}')">
+              <i class="fa-solid fa-trash mr-1"></i>Удалить
+            </button>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Ошибка загрузки</p></div>';
+    }
+  }
+
+  async function deletePost(id) {
+    try {
+      const result = await apiCall(`/posts/${id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ user_id: state.user.id })
+      });
+      if (result.success) {
+        toast('Пост удален!');
+        renderDinoNet();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {}
   }
 
   /*********************
@@ -968,9 +1086,9 @@
 
           <!-- Основные показатели -->
           <div class="grid grid-cols-2 gap-3 mb-4">
-            <div class="card p-3">
+            <div class="card p-3 text-center">
               <div class="text-gray-400 text-sm mb-1">Клиенты</div>
-              <div class="font-semibold text-lg">${fmt(c.clients_count)}</div>
+              <div class="bg-darkBgLight rounded px-2 py-1 font-semibold text-lg">${fmt(c.clients_count)}</div>
             </div>
             <div class="card p-3">
               <div class="text-gray-400 text-sm mb-1">Цена акции</div>
@@ -1024,12 +1142,16 @@
               <i class="fa-solid fa-users mr-2"></i>Привлечение клиентов
             </div>
             <div class="text-xs text-gray-400 mb-2">Покупайте клиентов для роста цены акций</div>
-            <div class="grid grid-cols-1 gap-2">
-              <button class="px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center"
-                onclick="buyClientsStars('${c.id}')">
-                <i class="fa-solid fa-user-plus mr-2"></i>+500 за 50 Telegram Stars
+            <div class="flex items-center gap-2">
+              <input id="clients-amt-${c.id}" type="number" min="1"
+                class="flex-1 bg-darkCard border border-darkBorder rounded-lg px-3 py-2"
+                placeholder="Количество">
+              <button class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                onclick="buyClientsDino('${c.id}')">
+                Купить
               </button>
             </div>
+            <div class="text-xs text-yellow-400 mt-1">Стоимость: ${ECON.CLIENT_COST} DINO/клиент</div>
           </div>
 
           <!-- Удалить компанию -->
@@ -1076,33 +1198,27 @@
     } catch (err) {}
   }
 
-  async function buyClientsStars(id) {
-  try {
-    const result = await apiCall(`/companies/${id}/create_stars_invoice`, {
-      method: 'POST',
-      body: JSON.stringify({ user_id: state.user.id })
-    });
-    
-    if (result.success) {
-      Telegram.WebApp.openInvoice(result.invoice_link, (status) => {
-        if (status === 'paid') {
-          toast('Оплата успешна! Клиенты добавлены.');
-          closeModal();
-          viewCompanyDetails(id);
-        } else if (status === 'failed') {
-          toast('Ошибка оплаты', 'error');
-        } else if (status === 'cancelled') {
-          toast('Оплата отменена');
-        }
+  async function buyClientsDino(id) {
+    const amtInput = document.getElementById(`clients-amt-${id}`);
+    const amount = parseInt(amtInput.value);
+    if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
+
+    try {
+      const result = await apiCall(`/companies/${id}/buy_clients`, {
+        method: 'POST',
+        body: JSON.stringify({ amount, user_id: state.user.id })
       });
-    } else {
-      toast(result.error, 'error');
-    }
-  } catch (err) {
-    console.error('Error creating invoice:', err);
-    toast('Ошибка создания счета', 'error');
+      if (result.success) {
+        toast('Клиенты куплены!');
+        state.balance = result.updated_balance;
+        updateHeader();
+        closeModal();
+        viewCompanyDetails(id);
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {}
   }
-}
 
   function copyText(text) {
     navigator.clipboard.writeText(text);
@@ -1261,10 +1377,19 @@
               </div>
               <span class="text-lg font-bold text-green-400">${fmt(c.share_price, 2)}</span>
             </div>
-            <div class="grid grid-cols-3 text-sm mb-3 gap-2">
-              <div class="pill text-center">Клиенты: ${fmt(c.clients_count)}</div>
-              <div class="pill text-center">Доступно: ${fmt(c.available_shares)}</div>
-              <div class="pill text-center">Ваши: ${fmt(c.your_shares || 0)}</div>
+            <div class="flex justify-between text-sm mb-3 gap-2">
+              <div class="text-center flex-1">
+                <span class="block text-sm">Клиенты</span>
+                <span class="bg-darkBgLight rounded px-2 py-1">${fmt(c.clients_count)}</span>
+              </div>
+              <div class="text-center flex-1">
+                <span class="block text-sm">Доступно</span>
+                <span class="bg-darkBgLight rounded px-2 py-1">${fmt(c.available_shares)}</span>
+              </div>
+              <div class="text-center flex-1">
+                <span class="block text-sm">Ваши</span>
+                <span class="bg-darkBgLight rounded px-2 py-1">${fmt(c.your_shares || 0)}</span>
+              </div>
             </div>
             ${state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCompanyMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : ''}
           </div>
@@ -1327,6 +1452,9 @@
         html += 'Нет акций в портфеле';
       } else {
         holdings.forEach(h => {
+          const value = h.amount * h.current_price;
+          const profit = h.amount * (h.current_price - h.average_purchase_price);
+          const profitColor = profit >= 0 ? 'text-green-400' : 'text-red-400';
           html += `
             <div class="card p-4 border border-darkBorder rounded-xl mb-4">
               <div class="flex justify-between items-start mb-2">
@@ -1338,7 +1466,8 @@
               <div class="flex justify-between text-sm mb-3">
                 <span>Клиенты: ${fmt(h.clients_count)}</span>
                 <span>Количество: ${fmt(h.amount)}</span>
-                <span>Значение: ${fmt(h.amount * h.current_price, 2)}</span>
+                <span>Значение: ${fmt(value, 2)}</span>
+                <span class="${profitColor}">Прибыль: ${fmt(profit, 2)}</span>
               </div>
               <div class="flex mt-2">
                 <input id="sell-amt-${h.id}" type="number" min="1" max="${h.amount}" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
@@ -1547,6 +1676,3 @@
   </script>
 </body>
 </html>
-
-
-
