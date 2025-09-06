@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DINO Game v3 — Бизнес, Крипта, ДиноНет</title>
+  <title>DINO Game v4 — Бизнес, Крипта, ДиноНет</title>
 
   <!-- Icons & Tailwind -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -302,6 +302,91 @@
       border-radius: 12px;
     }
 
+    /* Stock card styles from example */
+    .card-own {
+      border: 2px solid #facc15;
+      background: rgba(250, 204, 21, 0.1);
+    }
+
+    .price-up {
+      color: #10b981;
+    }
+
+    .price-down {
+      color: #ef4444;
+    }
+
+    .badge {
+      background: rgba(16,185,129,.15);
+      color: #10b981;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .stat-item {
+      background: rgba(255,255,255,0.05);
+      padding: 8px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .stat-value {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .post-card {
+      position: relative;
+    }
+
+    .post-like-btn {
+      cursor: pointer;
+    }
+
+    .post-like-btn.liked {
+      color: #ef4444;
+    }
+
+    .wallet-card {
+      padding: 16px;
+    }
+
+    .wallet-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .wallet-stat {
+      text-align: center;
+    }
+
+    .wallet-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .wallet-value {
+      font-weight: 600;
+    }
+
+    .crypto-card {
+      padding: 16px;
+    }
   </style>
 </head>
 
@@ -367,9 +452,9 @@
   /*********************
    * Core Game State & API
    *********************/
-  const VERSION = 10; // Updated version
-  const LS_KEY = "dinogame_v10_state";
-  const THEME_KEY = "dinogame_v10_theme";
+  const VERSION = 11; // Updated version
+  const LS_KEY = "dinogame_v11_state";
+  const THEME_KEY = "dinogame_v11_theme";
 
   // API Configuration
   const API_BASE = 'https://dinod.ru/api';
@@ -386,7 +471,10 @@
     LOW_SHARES_THRESHOLD: 100,
     CLIENT_COST: 10000, // DINO per client
     POST_COST: 25000, // DINO per post
-    POST_MAX_LENGTH: 280
+    POST_MAX_LENGTH: 280,
+    CRYPTO_COST: 250000, // Cost for creating crypto
+    REF_REWARD: 100000, // Reward for referral
+    MODAL_INTERVAL: 5 * 60 * 1000 // 5 minutes
   };
 
   const state = {
@@ -406,8 +494,11 @@
       bio: "Любитель динозавров и кликеров.",
       telegram_channel: "",
       show_owner_on_market: true,
+      show_username_crypto: true,
+      show_username_dinonet: true,
       is_moderator: false,
-      banned: false
+      banned: false,
+      hide_modals: false
     },
     clicks: 0,
     level: 1,
@@ -418,7 +509,12 @@
     isGuest: false,
     saveInProgress: false,
     startParam: Telegram.WebApp.initDataUnsafe.start_param || null,
-    lastCompanyCreateTime: null // For cooldown
+    lastCompanyCreateTime: null, // For cooldown
+    likedPosts: {}, // Local liked posts
+    referralLink: '', // User's referral link
+    invitedCount: 0,
+    lastModalTime: 0,
+    hasCrypto: false
   };
 
   // Elements
@@ -446,13 +542,17 @@
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 500) {
+          throw new Error('Server error');
+        }
+        const data = await response.json();
+        throw new Error(data.error || 'Unknown error');
       }
 
       return await response.json();
     } catch (error) {
       console.error('API call failed:', error);
-      toast('Ошибка связи с сервером', 'error');
+      toast('Ошибка: ' + error.message, 'error');
       throw error;
     }
   }
@@ -490,10 +590,13 @@
         }
         toast('Аккаунт загружен!');
         if (state.startParam && state.startParam.startsWith('ref-')) {
-          const companyId = state.startParam.split('ref-')[1];
-          setTab('investments');
-          viewCompanyDetails(companyId);
+          const referrerId = state.startParam.split('ref-')[1];
+          await apiCall('/referral/claim', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: state.user.id, referrer_id: referrerId })
+          });
         }
+        state.referralLink = `https://t.me/dinosav_bot?start=ref-${state.user.id}`;
         return result.user;
       } else {
         throw new Error(result.error);
@@ -530,9 +633,12 @@
     state.level = user.level || state.level;
     state.xp = user.xp || state.xp;
     state.xpNext = user.xp_next || state.xpNext;
-    state.user.show_owner_on_market = user.show_owner_on_market !== false; // Default true
+    state.user.show_owner_on_market = user.show_owner_on_market !== false;
+    state.user.show_username_crypto = user.show_username_crypto !== false;
+    state.user.show_username_dinonet = user.show_username_dinonet !== false;
     state.user.is_moderator = user.is_moderator || false;
     state.user.banned = user.banned || false;
+    state.user.hide_modals = user.hide_modals || false;
   }
 
   async function saveUserData() {
@@ -551,7 +657,10 @@
           level: state.level,
           xp: state.xp,
           xp_next: state.xpNext,
-          show_owner_on_market: state.user.show_owner_on_market
+          show_owner_on_market: state.user.show_owner_on_market,
+          show_username_crypto: state.user.show_username_crypto,
+          show_username_dinonet: state.user.show_username_dinonet,
+          hide_modals: state.user.hide_modals
         })
       });
 
@@ -681,6 +790,12 @@
       save();
     }
 
+    // Modal every 5 min
+    if (!state.user.hide_modals && now() - state.lastModalTime > ECON.MODAL_INTERVAL) {
+      state.lastModalTime = now();
+      showPromoModal();
+    }
+
     requestAnimationFrame(tick);
   }
 
@@ -694,6 +809,17 @@
   function updateLevel() {
     $level().textContent = state.level;
     $xpText().textContent = `${Math.floor(state.xp)}/${state.xpNext}`;
+  }
+
+  function showPromoModal() {
+    const isRef = Math.random() > 0.5;
+    const msg = isRef ? 'Пригласи друга и получи 100 тысяч DINO!' : 'Подпишись на наш канал, чтобы не пропустить новости!';
+    const action = isRef ? `<button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="copyText('${state.referralLink}')">Копировать ссылку</button>` : `<a href="https://t.me/dinogamed" class="w-full block py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-center">Подписаться</a>`;
+    openModal(`
+      <h2 class="font-bold text-xl mb-4">${msg}</h2>
+      ${action}
+      <button class="w-full py-3 rounded-xl bg-gray-600 text-white mt-2" onclick="state.user.hide_modals=true; saveUserData(); closeModal();">Больше не показывать</button>
+    `);
   }
 
   /*********************
@@ -836,25 +962,30 @@
             Создать пост
           </button>
       `;
-      posts.forEach(p => {
-        const ownerText = p.company_count > 0 ? `Владелец ${p.company_count} компаний` : '';
+      for (let p of posts) {
+        const ownerText = p.company_count > 0 ? `Владелец: ${p.company_count} компаний` : '';
+        const username = state.user.show_username_dinonet ? `@${p.username}` : 'Аноним';
+        const liked = state.likedPosts[p.id] || false;
+        const likeClass = liked ? 'liked fa-solid' : 'fa-regular';
+        const modDelete = state.user.is_moderator ? `<button class="absolute top-2 right-2 text-red-400" onclick="deletePostMod('${p.id}')"><i class="fa-solid fa-trash"></i></button>` : '';
         html += `
-          <div class="card p-4">
+          <div class="post-card card p-4 relative">
+            ${modDelete}
             <div class="flex items-center mb-2">
               <img src="${p.avatar_url}" class="w-8 h-8 rounded-full mr-2">
               <div>
-                <div class="font-bold">@${p.username}</div>
+                <div class="font-bold">${username}</div>
                 <div class="text-xs text-darkMuted">${ownerText}</div>
               </div>
             </div>
             <p class="post-text mb-2">${p.text}</p>
             <div class="flex text-sm text-darkMuted">
               <span class="mr-4"><i class="fa-regular fa-eye mr-1"></i>${fmt(p.views)}</span>
-              <span><i class="fa-regular fa-heart mr-1"></i>${fmt(p.likes)}</span>
+              <span class="post-like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${p.id}')"><i class="fa-heart mr-1 ${likeClass}"></i>${fmt(p.likes)}</span>
             </div>
           </div>
         `;
-      });
+      }
       html += '</div>';
       return html;
     } catch (err) {
@@ -862,10 +993,24 @@
     }
   }
 
+  async function toggleLike(postId) {
+    if (state.likedPosts[postId]) return;
+    state.likedPosts[postId] = true;
+    save();
+    try {
+      await apiCall(`/posts/${postId}/like`, {
+        method: 'POST',
+        body: JSON.stringify({ user_id: state.user.id })
+      });
+    } catch (err) {}
+    renderDinoNet();
+  }
+
   function createPostModal() {
     const cost = state.user.is_moderator ? 0 : ECON.POST_COST;
     openModal(`
       <h2 class="font-bold text-xl mb-4">Создать пост</h2>
+      <p class="text-sm text-yellow-400 mb-4">Мы за традиционные ценности. Не пишите ничего плохого, иначе будете заблокированы.</p>
       <textarea id="post-text" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Ваш текст (max ${ECON.POST_MAX_LENGTH} символов)" maxlength="${ECON.POST_MAX_LENGTH}"></textarea>
       <div class="text-sm text-yellow-400 mb-4">Стоимость: ${fmt(cost)} DINO</div>
       <button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="doCreatePost()">Отправить</button>
@@ -890,7 +1035,9 @@
       } else {
         toast(result.error, 'error');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast('Недостаточно монет', 'error');
+    }
   }
 
   async function myPostsPanelHTML() {
@@ -942,6 +1089,21 @@
     } catch (err) {}
   }
 
+  async function deletePostMod(id) {
+    try {
+      const result = await apiCall(`/posts/${id}/delete_mod`, {
+        method: 'POST',
+        body: JSON.stringify({ mod_user_id: state.user.id })
+      });
+      if (result.success) {
+        toast('Пост удален!');
+        renderDinoNet();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {}
+  }
+
   /*********************
    * Business
    *********************/
@@ -951,7 +1113,7 @@
     $content().innerHTML = `
       <section class="space-y-5">
         <div class="card p-2">
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-4 gap-2">
             <button class="tab-btn ${businessTab==='company'?'active':''} rounded-xl py-3 font-medium" onclick="setBusinessTab('company')">
               <i class="fa-solid fa-building mr-2"></i>Компания
             </button>
@@ -964,7 +1126,7 @@
           </div>
         </div>
 
-        ${businessTab==='company' ? await companyPanelHTML() : businessTab==='crypto' ? cryptoPanelHTML() : referralsPanelHTML()}
+        ${businessTab==='company' ? await companyPanelHTML() : businessTab==='crypto' ? await cryptoPanelHTML() : await referralsPanelHTML()}
       </section>
     `;
   }
@@ -1002,6 +1164,7 @@
       html += '</div>';
       return html;
     } catch (err) {
+      toast('Недостаточно средств', 'error');
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
     }
   }
@@ -1027,7 +1190,7 @@
 
     const cost = ECON.COMPANY_COSTS[count];
     if (state.balance < cost) {
-      toast('Не хватает DINO для создания компании', 'error');
+      toast('Недостаточно монет', 'error');
       return;
     }
 
@@ -1064,7 +1227,9 @@
       } else {
         toast(result.error, 'error');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast('Недостаточно средств', 'error');
+    }
   }
 
   async function viewCompanyDetails(id) {
@@ -1217,7 +1382,9 @@
       } else {
         toast(result.error, 'error');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast('Недостаточно средств', 'error');
+    }
   }
 
   function copyText(text) {
@@ -1240,7 +1407,9 @@
       } else {
         toast(result.error, 'error');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast('Недостаточно средств', 'error');
+    }
   }
 
   async function confirmDeleteCompany(id) {
@@ -1294,27 +1463,159 @@
     } catch (err) {}
   }
 
-  function cryptoPanelHTML(){
-    return `
-      <div class="space-y-5">
-        <div class="text-center py-10 card"><i class="fa-regular fa-coins text-4xl text-darkMuted mb-3"></i><p>Ещё нет токенов</p></div>
-      </div>
-    `;
+  async function cryptoPanelHTML() {
+    if (state.isGuest || state.user.banned) {
+      return '<div class="text-center py-10 card"><p>Функция недоступна</p></div>';
+    }
+
+    try {
+      const result = await apiCall('/cryptos?owner_id=' + state.user.id);
+      if (!result.success) {
+        return '<div class="text-center py-10 card"><p>Ошибка загрузки крипты</p></div>';
+      }
+      const cryptos = result.cryptos;
+      state.hasCrypto = cryptos.length > 0;
+
+      let html = '<div class="space-y-4">';
+      if (cryptos.length < 1) {
+        html += `<button class="w-full px-4 py-5 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium text-lg" onclick="createCryptoModal()">
+          Создать крипту
+        </button>`;
+      }
+      cryptos.forEach(c => {
+        html += `
+          <div class="crypto-card card p-4">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="font-bold text-lg">${c.name} (${c.ticker})</h3>
+                <p class="text-sm text-gray-400">${state.user.show_username_crypto ? `@${state.user.username}` : 'Аноним'}</p>
+              </div>
+              <span class="text-lg font-bold price-up">ЦЕНА ${fmt(c.price, 2)}</span>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">Клиенты</div>
+                <div class="stat-value">${fmt(c.clients_count)}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Доступно</div>
+                <div class="stat-value">${fmt(c.available)}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Ваши</div>
+                <div class="stat-value">${fmt(c.your_amount)}</div>
+              </div>
+            </div>
+            <div class="text-sm text-gray-400 mt-2">Доход/сек: ${fmt(c.income_per_sec, 4)}</div>
+            <button class="w-full py-2 mt-2 rounded-xl bg-red-600 hover:bg-red-700 text-white" onclick="confirmDeleteCrypto('${c.id}')">Удалить</button>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+    }
   }
 
-  function referralsPanelHTML() {
-    return `
-      <div class="space-y-5">
-        <div class="card p-5">
-          <h3 class="font-semibold text-lg mb-4">Реферальная система</h3>
-          <p class="text-sm text-darkMuted mb-4">Приглашайте друзей!</p>
-          <div class="bg-darkBgLight rounded-xl p-3">
-            <div class="text-darkMuted text-sm mb-1">Приглашено</div>
-            <div class="font-semibold text-lg">0</div>
+  function createCryptoModal() {
+    const cost = ECON.CRYPTO_COST;
+    if (state.balance < cost) {
+      toast('Недостаточно монет', 'error');
+      return;
+    }
+    openModal(`
+      <h2 class="font-bold text-xl mb-4">Создать крипту</h2>
+      <input id="crypto-name" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Название крипты">
+      <input id="crypto-ticker" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Тикер (например, BTC)">
+      <div class="text-sm text-yellow-400 mb-4">Стоимость: ${fmt(cost)} DINO. Только 1 крипта на аккаунт.</div>
+      <button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="doCreateCrypto()">Создать</button>
+    `);
+  }
+
+  async function doCreateCrypto() {
+    const name = document.getElementById('crypto-name').value.trim();
+    const ticker = document.getElementById('crypto-ticker').value.trim().toUpperCase();
+    if (!name || !ticker) return toast('Заполните поля', 'error');
+
+    try {
+      const result = await apiCall('/cryptos', {
+        method: 'POST',
+        body: JSON.stringify({ name, ticker, owner_id: state.user.id })
+      });
+      if (result.success) {
+        closeModal();
+        toast('Крипта создана!');
+        state.balance = result.updated_balance;
+        updateHeader();
+        renderBusiness();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {
+      toast('Недостаточно средств', 'error');
+    }
+  }
+
+  async function confirmDeleteCrypto(id) {
+    openModal(`
+      <div class="text-center">
+        <h2 class="font-bold text-xl mb-4">Подтверждение</h2>
+        <p class="mb-4">Удалить крипту навсегда?</p>
+        <button class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium mb-2" onclick="deleteCrypto('${id}')">Да</button>
+        <button class="w-full py-3 rounded-xl bg-gray-600 text-white" onclick="closeModal()">Отмена</button>
+      </div>
+    `);
+  }
+
+  async function deleteCrypto(id) {
+    try {
+      const result = await apiCall(`/cryptos/${id}`, { method: 'DELETE' });
+      if (result.success) {
+        toast('Крипта удалена!');
+        closeModal();
+        renderBusiness();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {}
+  }
+
+  async function referralsPanelHTML() {
+    if (state.isGuest || state.user.banned) {
+      return '<div class="text-center py-10 card"><p>Функция недоступна</p></div>';
+    }
+
+    try {
+      const result = await apiCall(`/referrals?user_id=${state.user.id}`);
+      if (!result.success) return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+      state.invitedCount = result.invited_count;
+
+      return `
+        <div class="space-y-5">
+          <div class="card p-5">
+            <h3 class="font-semibold text-lg mb-4">Реферальная система</h3>
+            <p class="text-sm text-darkMuted mb-4">Приглашайте друзей и получайте 100 тысяч DINO за каждого!</p>
+            <div class="bg-darkBgLight rounded-xl p-3 mb-4">
+              <div class="text-darkMuted text-sm mb-1">Приглашено</div>
+              <div class="font-semibold text-lg">${fmt(state.invitedCount)}</div>
+            </div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-sm truncate">${state.referralLink}</span>
+              <button class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm text-white flex items-center" onclick="copyText('${state.referralLink}')">
+                <i class="fa-regular fa-copy mr-1"></i>Копировать
+              </button>
+            </div>
+            <div class="card p-4">
+              <p class="text-sm mb-2">Подпишитесь на наш Telegram-канал, чтобы не пропустить новости!</p>
+              <a href="https://t.me/dinogamed" class="w-full block py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-center">Подписаться</a>
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
+    } catch (err) {
+      return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+    }
   }
 
   /*********************
@@ -1340,7 +1641,7 @@
           </div>
         </div>
 
-        ${invTab==='stocks' ? await stocksMarketHTML() : invTab==='crypto' ? cryptoMarketHTML() : await walletHTML()}
+        ${invTab==='stocks' ? await stocksMarketHTML() : invTab==='crypto' ? await cryptoMarketHTML() : await walletHTML()}
       </section>
     `;
   }
@@ -1365,33 +1666,34 @@
       `;
       companies.forEach(c => {
         const isOwn = c.owner_id === state.user.id;
-        const owner = c.show_owner_on_market ? `@${c.owner_username}` : '';
-        const highlight = isOwn ? 'border-2 border-yellow-400 bg-yellow-400/10' : '';
-        const label = isOwn ? '<span class="text-yellow-400 text-sm ml-2">Ваш бизнес</span>' : '';
+        const owner = c.show_owner_on_market ? `@${c.owner_username}` : 'Аноним';
+        const highlight = isOwn ? 'card-own' : '';
+        const priceClass = c.share_price_change > 0 ? 'price-up' : 'price-down';
+        const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCompanyMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : '';
         html += `
           <div class="card p-4 border border-darkBorder rounded-xl ${highlight} cursor-pointer" onclick="viewCompanyDetails('${c.id}')">
-            <div class="flex justify-between items-start mb-2">
+            <div class="flex justify-between items-start mb-3">
               <div>
-                <h3 class="font-bold text-lg">${c.name}${label}</h3>
-                <p class="text-sm text-darkMuted">${owner}</p>
+                <h3 class="font-bold text-lg">${c.name}</h3>
+                <p class="text-sm text-gray-400">${owner}</p>
               </div>
-              <span class="text-lg font-bold text-green-400">${fmt(c.share_price, 2)}</span>
+              <span class="text-lg font-bold ${priceClass}">ЦЕНА ${fmt(c.share_price, 2)}</span>
             </div>
-            <div class="flex justify-between text-sm mb-3 gap-2">
-              <div class="text-center flex-1">
-                <span class="block text-sm">Клиенты</span>
-                <span class="bg-darkBgLight rounded px-2 py-1">${fmt(c.clients_count)}</span>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">Клиенты</div>
+                <div class="stat-value">${fmt(c.clients_count)}</div>
               </div>
-              <div class="text-center flex-1">
-                <span class="block text-sm">Доступно</span>
-                <span class="bg-darkBgLight rounded px-2 py-1">${fmt(c.available_shares)}</span>
+              <div class="stat-item">
+                <div class="stat-label">Доступно</div>
+                <div class="stat-value">${fmt(c.available_shares)}</div>
               </div>
-              <div class="text-center flex-1">
-                <span class="block text-sm">Ваши</span>
-                <span class="bg-darkBgLight rounded px-2 py-1">${fmt(c.your_shares || 0)}</span>
+              <div class="stat-item">
+                <div class="stat-label">Ваши</div>
+                <div class="stat-value">${fmt(c.your_shares || 0)}</div>
               </div>
             </div>
-            ${state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCompanyMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : ''}
+            ${modDelete}
           </div>
         `;
       });
@@ -1428,15 +1730,225 @@
       } else {
         toast(result.error, 'error');
       }
+    } catch (err) {
+      toast('Недостаточно монет', 'error');
+    }
+  }
+
+  async function cryptoMarketHTML(){
+    if (state.isGuest || state.user.banned) return '<div class="text-center py-10 card"><p>Функция недоступна</p></div>';
+
+    try {
+      const result = await apiCall(`/market/cryptos?user_id=${state.user.id}`);
+      if (!result.success) return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+      const cryptos = result.cryptos;
+
+      let html = '<div class="space-y-4">';
+      cryptos.forEach(c => {
+        const isOwn = c.owner_id === state.user.id;
+        const owner = c.show_username_crypto ? `@${c.owner_username}` : 'Аноним';
+        const highlight = isOwn ? 'card-own' : '';
+        const priceClass = c.price_change > 0 ? 'price-up' : 'price-down';
+        const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCryptoMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : '';
+        html += `
+          <div class="card p-4 border border-darkBorder rounded-xl ${highlight} cursor-pointer" onclick="viewCryptoDetails('${c.id}')">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="font-bold text-lg">${c.name} (${c.ticker})</h3>
+                <p class="text-sm text-gray-400">${owner}</p>
+              </div>
+              <span class="text-lg font-bold ${priceClass}">ЦЕНА ${fmt(c.price, 2)}</span>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">Клиенты</div>
+                <div class="stat-value">${fmt(c.clients_count)}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Доступно</div>
+                <div class="stat-value">${fmt(c.available)}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Ваши</div>
+                <div class="stat-value">${fmt(c.your_amount || 0)}</div>
+              </div>
+            </div>
+            <div class="text-sm text-gray-400 mt-2">Доход/сек: ${fmt(c.income_per_sec, 4)}</div>
+            ${modDelete}
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    } catch (err) {
+      return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
+    }
+  }
+
+  async function viewCryptoDetails(id) {
+    try {
+      const result = await apiCall(`/cryptos/${id}`);
+      if (!result.success) return toast('Ошибка', 'error');
+      const c = result.crypto;
+      const isOwner = c.owner_id === state.user.id;
+      const ref = `https://t.me/dinosav_bot?start=ref-crypto-${c.id}`;
+      const avail = c.available;
+      const price = c.price;
+
+      let html = `
+        <div class="space-y-4">
+          <h2 class="font-bold text-xl mb-1">${c.name} (${c.ticker})</h2>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="card p-3 text-center">
+              <div class="text-gray-400 text-sm mb-1">Клиенты</div>
+              <div class="bg-darkBgLight rounded px-2 py-1 font-semibold text-lg">${fmt(c.clients_count)}</div>
+            </div>
+            <div class="card p-3">
+              <div class="text-gray-400 text-sm mb-1">Цена</div>
+              <div class="font-semibold text-lg text-green-400">${fmt(price, 2)}</div>
+            </div>
+            <div class="card p-3">
+              <div class="text-gray-400 text-sm mb-1">Доступно</div>
+              <div class="font-semibold text-lg">${fmt(avail)}</div>
+            </div>
+            <div class="card p-3">
+              <div class="text-gray-400 text-sm mb-1">Доход от продаж</div>
+              <div class="font-semibold text-lg">${fmt(c.revenue || 0)}</div>
+            </div>
+          </div>
+          <div class="text-sm text-gray-400 mb-2">Доход/сек: ${fmt(c.income_per_sec, 4)}</div>
+          <div class="card flex items-center justify-between p-3 mb-4">
+            <div class="text-sm truncate">
+              <span class="text-gray-400">Реф. ссылка: </span><span>${ref}</span>
+            </div>
+            <button class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm text-white flex items-center"
+              onclick="copyText('${ref}')">
+              <i class="fa-regular fa-copy mr-1"></i>Копировать
+            </button>
+          </div>
+      `;
+
+      if (isOwner) {
+        html += `
+          <div class="card p-4">
+            <div class="font-semibold mb-2 flex items-center text-emerald-500">
+              <i class="fa-solid fa-users mr-2"></i>Привлечение клиентов
+            </div>
+            <div class="text-xs text-gray-400 mb-2">Покупайте клиентов для роста цены</div>
+            <div class="flex items-center gap-2">
+              <input id="clients-amt-crypto-${c.id}" type="number" min="1"
+                class="flex-1 bg-darkCard border border-darkBorder rounded-lg px-3 py-2"
+                placeholder="Количество">
+              <button class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                onclick="buyClientsCrypto('${c.id}')">
+                Купить
+              </button>
+            </div>
+            <div class="text-xs text-yellow-400 mt-1">Стоимость: ${ECON.CLIENT_COST} DINO/клиент</div>
+          </div>
+          <button class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium mt-4"
+            onclick="confirmDeleteCrypto('${c.id}')">
+            Удалить крипту
+          </button>
+        `;
+      } else {
+        html += `
+          <div class="card p-4">
+            <div class="font-semibold mb-2 flex items-center text-green-400">
+              <i class="fa-solid fa-shopping-cart mr-2"></i>Купить
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="buy-amt-crypto-${c.id}" type="number" min="1" max="${avail}"
+                class="flex-1 bg-darkCard border border-darkBorder rounded-lg px-3 py-2"
+                placeholder="Количество">
+              <button class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                onclick="buyCrypto('${c.id}')">
+                Купить
+              </button>
+            </div>
+            <div class="text-xs text-yellow-400 mt-1">Ваша: ${fmt(c.your_amount || 0)}</div>
+          </div>
+        `;
+      }
+
+      html += '</div>';
+      openModal(html);
     } catch (err) {}
   }
 
-  function cryptoMarketHTML(){
-    return `
-      <div class="space-y-4">
-        <div class="card p-5 text-center py-10"><i class="fa-regular fa-coins text-4xl text-darkMuted mb-3"></i><p>Нет токенов на рынке</p></div>
+  async function buyClientsCrypto(id) {
+    const amtInput = document.getElementById(`clients-amt-crypto-${id}`);
+    const amount = parseInt(amtInput.value);
+    if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
+
+    try {
+      const result = await apiCall(`/cryptos/${id}/buy_clients`, {
+        method: 'POST',
+        body: JSON.stringify({ amount, user_id: state.user.id })
+      });
+      if (result.success) {
+        toast('Клиенты куплены!');
+        state.balance = result.updated_balance;
+        updateHeader();
+        closeModal();
+        viewCryptoDetails(id);
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {
+      toast('Недостаточно средств', 'error');
+    }
+  }
+
+  async function buyCrypto(cryptoId) {
+    const amtInput = document.getElementById(`buy-amt-crypto-${cryptoId}`);
+    const amount = parseInt(amtInput.value);
+    if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
+
+    try {
+      const result = await apiCall('/market/buy_crypto', {
+        method: 'POST',
+        body: JSON.stringify({ crypto_id: cryptoId, amount, user_id: state.user.id })
+      });
+      if (result.success) {
+        toast('Куплено!');
+        state.balance = result.updated_balance;
+        updateHeader();
+        closeModal();
+        renderInvestments();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {
+      toast('Недостаточно монет', 'error');
+    }
+  }
+
+  async function deleteCryptoMod(id) {
+    openModal(`
+      <div class="text-center">
+        <h2 class="font-bold text-xl mb-4">Подтверждение удаления</h2>
+        <p class="mb-4">Удалить крипту как модератор?</p>
+        <button class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium mb-2" onclick="deleteCryptoModFinal('${id}')">Да</button>
+        <button class="w-full py-3 rounded-xl bg-gray-600 text-white" onclick="closeModal()">Отмена</button>
       </div>
-    `;
+    `);
+  }
+
+  async function deleteCryptoModFinal(id) {
+    try {
+      const result = await apiCall(`/cryptos/${id}/delete_mod`, {
+        method: 'POST',
+        body: JSON.stringify({ mod_user_id: state.user.id })
+      });
+      if (result.success) {
+        toast("Крипта удалена модератором!");
+        closeModal();
+        renderInvestments();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {}
   }
 
   async function walletHTML(){
@@ -1446,28 +1958,31 @@
       const result = await apiCall(`/holdings?user_id=${state.user.id}`);
       if (!result.success) return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
       const holdings = result.holdings;
+      const cryptoHoldings = result.crypto_holdings;
 
       let html = '<div class="space-y-5"><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Акции</h3>';
       if (holdings.length === 0) {
         html += 'Нет акций в портфеле';
       } else {
         holdings.forEach(h => {
-          const value = h.amount * h.current_price;
           const profit = h.amount * (h.current_price - h.average_purchase_price);
           const profitColor = profit >= 0 ? 'text-green-400' : 'text-red-400';
           html += `
-            <div class="card p-4 border border-darkBorder rounded-xl mb-4">
-              <div class="flex justify-between items-start mb-2">
-                <div>
-                  <h3 class="font-bold text-lg">${h.company_name}</h3>
+            <div class="wallet-card card p-4 mb-4">
+              <h3 class="font-bold text-lg mb-2">${h.company_name}</h3>
+              <div class="wallet-stats">
+                <div class="wallet-stat">
+                  <div class="wallet-label">Клиенты</div>
+                  <div class="wallet-value">${fmt(h.clients_count)}</div>
                 </div>
-                <span class="text-lg font-bold text-green-400">${fmt(h.current_price, 2)}</span>
-              </div>
-              <div class="flex justify-between text-sm mb-3">
-                <span>Клиенты: ${fmt(h.clients_count)}</span>
-                <span>Количество: ${fmt(h.amount)}</span>
-                <span>Значение: ${fmt(value, 2)}</span>
-                <span class="${profitColor}">Прибыль: ${fmt(profit, 2)}</span>
+                <div class="wallet-stat">
+                  <div class="wallet-label">Акций</div>
+                  <div class="wallet-value">${fmt(h.amount)}</div>
+                </div>
+                <div class="wallet-stat">
+                  <div class="wallet-label">Прибыль</div>
+                  <div class="wallet-value ${profitColor}">${fmt(profit, 2)}</div>
+                </div>
               </div>
               <div class="flex mt-2">
                 <input id="sell-amt-${h.id}" type="number" min="1" max="${h.amount}" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
@@ -1477,7 +1992,40 @@
           `;
         });
       }
-      html += '</div><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>Нет крипты в портфеле</div></div>';
+      html += '</div><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>';
+      if (cryptoHoldings.length === 0) {
+        html += 'Нет крипты в портфеле';
+      } else {
+        cryptoHoldings.forEach(ch => {
+          const profit = ch.amount * (ch.current_price - ch.average_purchase_price);
+          const profitColor = profit >= 0 ? 'text-green-400' : 'text-red-400';
+          html += `
+            <div class="wallet-card card p-4 mb-4">
+              <h3 class="font-bold text-lg mb-2">${ch.name} (${ch.ticker})</h3>
+              <div class="wallet-stats">
+                <div class="wallet-stat">
+                  <div class="wallet-label">Клиенты</div>
+                  <div class="wallet-value">${fmt(ch.clients_count)}</div>
+                </div>
+                <div class="wallet-stat">
+                  <div class="wallet-label">Количество</div>
+                  <div class="wallet-value">${fmt(ch.amount)}</div>
+                </div>
+                <div class="wallet-stat">
+                  <div class="wallet-label">Прибыль</div>
+                  <div class="wallet-value ${profitColor}">${fmt(profit, 2)}</div>
+                </div>
+              </div>
+              <div class="text-sm text-gray-400 mb-2">Доход/сек: ${fmt(ch.income_per_sec * ch.amount, 4)}</div>
+              <div class="flex mt-2">
+                <input id="sell-amt-crypto-${ch.id}" type="number" min="1" max="${ch.amount}" class="flex-1 px-4 py-3 rounded-l-xl bg-darkBgLight border border-darkBorder" placeholder="Количество">
+                <button class="px-4 py-3 rounded-r-xl bg-darkDanger text-white" onclick="sellCrypto(${ch.id})">Продать</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+      html += '</div></div>';
       return html;
     } catch (err) {
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
@@ -1502,7 +2050,32 @@
       } else {
         toast(result.error, 'error');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast('Недостаточно монет', 'error');
+    }
+  }
+
+  async function sellCrypto(holdingId) {
+    const amtInput = document.getElementById(`sell-amt-crypto-${holdingId}`);
+    const amount = parseInt(amtInput.value);
+    if (isNaN(amount) || amount <= 0) return toast('Неверное количество', 'error');
+
+    try {
+      const result = await apiCall('/market/sell_crypto', {
+        method: 'POST',
+        body: JSON.stringify({ holding_id: holdingId, amount, user_id: state.user.id })
+      });
+      if (result.success) {
+        toast('Продана!');
+        state.balance = result.updated_balance;
+        updateHeader();
+        renderInvestments();
+      } else {
+        toast(result.error, 'error');
+      }
+    } catch (err) {
+      toast('Недостаточно монет', 'error');
+    }
   }
 
   /*********************
@@ -1525,6 +2098,24 @@
         `;
       });
       ownedHtml += '</div>';
+    }
+
+    const cryptoRes = await apiCall('/cryptos?owner_id=' + state.user.id);
+    const cryptos = cryptoRes.cryptos || [];
+    let cryptoHtml = '';
+    if (cryptos.length === 0) {
+      cryptoHtml = '<p class="text-center text-darkMuted">Нет крипты</p>';
+    } else {
+      cryptoHtml = '<div class="space-y-3">';
+      cryptos.forEach(c => {
+        cryptoHtml += `
+          <div class="card p-3 rounded-xl bg-darkCardHover flex justify-between items-center">
+            <span class="font-medium">${c.name} (${c.ticker})</span>
+            <span class="text-sm text-darkMuted">Клиенты: ${fmt(c.clients_count)}</span>
+          </div>
+        `;
+      });
+      cryptoHtml += '</div>';
     }
 
     let modHtml = '';
@@ -1554,8 +2145,13 @@
         </div>
 
         <div class="card p-5">
-          <h3 class="font-semibold mb-4">Владелец</h3>
+          <h3 class="font-semibold mb-4">Владелец компаний</h3>
           ${ownedHtml}
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-semibold mb-4">Владелец крипты</h3>
+          ${cryptoHtml}
         </div>
 
         <div class="card p-5">
@@ -1568,9 +2164,21 @@
               </button>
             </div>
             <div class="flex items-center justify-between">
-              <span>Показывать хозяина компании на рынке</span>
-              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowOwner()">
+              <span>Показывать владельца на рынке акций</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowOwnerMarket()">
                 ${state.user.show_owner_on_market ? 'Да' : 'Нет'}
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>Показывать юзернейм при продаже крипты</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowUsernameCrypto()">
+                ${state.user.show_username_crypto ? 'Да' : 'Нет'}
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>Показывать юзернейм в ДиноНет</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowUsernameDinonet()">
+                ${state.user.show_username_dinonet ? 'Да' : 'Нет'}
               </button>
             </div>
             <div class="flex items-center justify-between">
@@ -1582,6 +2190,27 @@
         ${modHtml}
       </section>
     `;
+  }
+
+  function toggleShowOwnerMarket() {
+    state.user.show_owner_on_market = !state.user.show_owner_on_market;
+    save();
+    saveUserData();
+    renderProfile();
+  }
+
+  function toggleShowUsernameCrypto() {
+    state.user.show_username_crypto = !state.user.show_username_crypto;
+    save();
+    saveUserData();
+    renderProfile();
+  }
+
+  function toggleShowUsernameDinonet() {
+    state.user.show_username_dinonet = !state.user.show_username_dinonet;
+    save();
+    saveUserData();
+    renderProfile();
   }
 
   async function searchUsers() {
@@ -1632,13 +2261,6 @@
         toast(result.error, 'error');
       }
     } catch (err) {}
-  }
-
-  function toggleShowOwner() {
-    state.user.show_owner_on_market = !state.user.show_owner_on_market;
-    save();
-    saveUserData();
-    renderProfile();
   }
 
   /*********************
