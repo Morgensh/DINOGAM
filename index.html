@@ -328,25 +328,25 @@
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 12px;
+      gap: 12px;
+      margin-top: 16px;
     }
 
     .stat-item {
       background: rgba(255,255,255,0.05);
-      padding: 8px;
-      border-radius: 8px;
+      padding: 12px;
+      border-radius: 12px;
       text-align: center;
     }
 
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: #94a3b8;
     }
 
     .stat-value {
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 1rem;
     }
   </style>
 </head>
@@ -1394,9 +1394,13 @@
     } catch (err) {}
   }
 
-  function copyText(text) {
-    navigator.clipboard.writeText(text);
-    toast("Скопировано: " + text);
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Скопировано!");
+    } catch (err) {
+      toast("Ошибка копирования", "error");
+    }
   }
 
   async function emitShares(id, maxEmit) {
@@ -1521,29 +1525,29 @@
         const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCompanyMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : '';
         const ownerLabel = isOwn ? 'Ваш бизнес' : owner;
         html += `
-          <div class="card ${cardClass} cursor-pointer" onclick="viewCompanyDetails('${c.id}')">
-            <div class="flex justify-between items-start mb-3">
+          <div class="card p-4 ${cardClass} cursor-pointer" onclick="viewCompanyDetails('${c.id}')">
+            <div class="flex justify-between items-start mb-4">
               <div>
                 <div class="flex items-center gap-2">
-                  <h3 class="font-bold text-lg">${escapeHtml(c.name)}</h3>
+                  <h3 class="font-bold text-xl">${escapeHtml(c.name)}</h3>
                   ${badgeHtml}
                 </div>
-                <p class="text-sm text-gray-400">${ownerLabel}</p>
+                <p class="text-xs text-gray-400">${ownerLabel}</p>
               </div>
-              <span class="text-lg font-bold ${priceClass}">ЦЕНА: ${fmt(c.share_price, 2)}</span>
+              <span class="text-2xl font-bold ${priceClass}">${fmt(c.share_price, 2)}</span>
             </div>
             <div class="stats-grid">
               <div class="stat-item">
-                <div class="stat-label">Клиенты</div>
                 <div class="stat-value">${fmt(c.clients_count)}</div>
+                <div class="stat-label">Клиенты</div>
               </div>
               <div class="stat-item">
-                <div class="stat-label">Доступно</div>
                 <div class="stat-value">${fmt(c.available_shares)}</div>
+                <div class="stat-label">Доступно</div>
               </div>
               <div class="stat-item">
-                <div class="stat-label">Ваши</div>
                 <div class="stat-value">${fmt(c.your_shares || 0)}</div>
+                <div class="stat-label">Ваши</div>
               </div>
             </div>
             ${modDelete}
