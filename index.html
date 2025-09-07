@@ -302,40 +302,20 @@
       border-radius: 12px;
     }
 
-    /* Stock card styles from example */
-    body {
-      padding: 20px;
-    }
-    
-    .card {
-      background: #1d212c;
-      border: 1px solid #2d323d;
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 16px;
-      transition: all 0.3s ease;
-      cursor: pointer;
-    }
-    
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,.2);
-      border-color: rgba(16,185,129,.2);
-    }
-    
+    /* New stock card styles */
     .card-own {
       border: 2px solid #facc15;
       background: rgba(250, 204, 21, 0.1);
     }
-    
+
     .price-up {
       color: #10b981;
     }
-    
+
     .price-down {
       color: #ef4444;
     }
-    
+
     .badge {
       background: rgba(16,185,129,.15);
       color: #10b981;
@@ -344,31 +324,30 @@
       font-size: 0.75rem;
       font-weight: 500;
     }
-    
+
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       margin-top: 12px;
     }
-    
+
     .stat-item {
       background: rgba(255,255,255,0.05);
       padding: 8px;
       border-radius: 8px;
       text-align: center;
     }
-    
+
     .stat-label {
       font-size: 0.75rem;
       color: #94a3b8;
     }
-    
+
     .stat-value {
       font-weight: 600;
       font-size: 0.9rem;
     }
-
   </style>
 </head>
 
@@ -437,7 +416,8 @@
   const VERSION = 11; // Updated version
   const LS_KEY = "dinogame_v11_state";
   const THEME_KEY = "dinogame_v11_theme";
-  const LIKED_POSTS_KEY = "dinogame_v11_liked_posts"; // For local but server handles
+  const VIEWED_KEY = "dinogame_v11_viewed";
+  const LIKED_KEY = "dinogame_v11_liked";
 
   // API Configuration
   const API_BASE = 'https://dinod.ru/api';
@@ -474,7 +454,8 @@
       bio: "Любитель динозавров и кликеров.",
       telegram_channel: "",
       show_owner_on_market: true,
-      show_username_in_posts: true,
+      show_username_in_dinonet: true,
+      show_username_in_crypto: true,
       is_moderator: false,
       banned: false
     },
@@ -487,7 +468,9 @@
     isGuest: false,
     saveInProgress: false,
     startParam: Telegram.WebApp.initDataUnsafe.start_param || null,
-    lastCompanyCreateTime: null // For cooldown
+    lastCompanyCreateTime: null,
+    viewedPosts: new Set(),
+    likedPosts: new Set()
   };
 
   // Elements
@@ -514,15 +497,15 @@
         ...options
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      return data;
     } catch (error) {
       console.error('API call failed:', error);
-      toast('Ошибка связи с сервером', 'error');
+      toast(error.message || 'Ошибка связи с сервером', 'error');
       throw error;
     }
   }
@@ -600,8 +583,9 @@
     state.level = user.level || state.level;
     state.xp = user.xp || state.xp;
     state.xpNext = user.xp_next || state.xpNext;
-    state.user.show_owner_on_market = user.show_owner_on_market !== false; // Default true
-    state.user.show_username_in_posts = user.show_username_in_posts !== false; // Default true
+    state.user.show_owner_on_market = user.show_owner_on_market !== false;
+    state.user.show_username_in_dinonet = user.show_username_in_dinonet !== false;
+    state.user.show_username_in_crypto = user.show_username_in_crypto !== false;
     state.user.is_moderator = user.is_moderator || false;
     state.user.banned = user.banned || false;
   }
@@ -623,7 +607,8 @@
           xp: state.xp,
           xp_next: state.xpNext,
           show_owner_on_market: state.user.show_owner_on_market,
-          show_username_in_posts: state.user.show_username_in_posts
+          show_username_in_dinonet: state.user.show_username_in_dinonet,
+          show_username_in_crypto: state.user.show_username_in_crypto
         })
       });
 
@@ -654,20 +639,23 @@
   function save() {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
     localStorage.setItem(THEME_KEY, state.theme);
+    localStorage.setItem(VIEWED_KEY, JSON.stringify([...state.viewedPosts]));
+    localStorage.setItem(LIKED_KEY, JSON.stringify([...state.likedPosts]));
   }
 
   function load() {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed.version < VERSION) {
-        Object.assign(state, parsed);
-        state.version = VERSION;
-      } else {
-        Object.assign(state, parsed);
-      }
-    } catch(_) {}
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.version < VERSION) {
+          Object.assign(state, parsed);
+          state.version = VERSION;
+        } else {
+          Object.assign(state, parsed);
+        }
+      } catch(_) {}
+    }
 
     const savedTheme = localStorage.getItem(THEME_KEY);
     if (savedTheme) {
@@ -675,6 +663,9 @@
       document.body.classList.remove("dark", "light");
       document.body.classList.add(savedTheme);
     }
+
+    state.viewedPosts = new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]'));
+    state.likedPosts = new Set(JSON.parse(localStorage.getItem(LIKED_KEY) || '[]'));
   }
 
   function toast(text, type="ok") {
@@ -841,7 +832,7 @@
   }
 
   function buyClick() {
-    if (state.balance < state.clickUpgradeCost) return toast("Недостаточно DINO", "error");
+    if (state.balance < state.clickUpgradeCost) return toast("Не хватает DINO", "error");
     state.balance -= state.clickUpgradeCost;
     state.perClick += ECON.CLICK_INC;
     state.clickUpgradeCost = Math.ceil(state.clickUpgradeCost * ECON.CLICK_COST_MULT);
@@ -877,10 +868,21 @@
       </section>
     `;
 
-    // Auto view posts in feed
+    // Send view events for posts in feed
     if (dinonetTab === 'feed') {
-      const postIds = Array.from($content().querySelectorAll('.post-card')).map(el => el.dataset.postId);
-      postIds.forEach(id => viewPost(id));
+      const posts = await apiCall(`/posts?mode=feed&limit=20`).posts || [];
+      posts.forEach(async (p) => {
+        if (!state.viewedPosts.has(p.id)) {
+          try {
+            await apiCall(`/posts/${p.id}/view`, {
+              method: 'POST',
+              body: JSON.stringify({ user_id: state.user.id })
+            });
+            state.viewedPosts.add(p.id);
+            save();
+          } catch (err) {}
+        }
+      });
     }
 
     if (dinonetRefreshInterval) clearInterval(dinonetRefreshInterval);
@@ -902,7 +904,7 @@
     }
 
     try {
-      const result = await apiCall(`/posts?mode=feed&limit=20&user_id=${state.user.id}`);
+      const result = await apiCall(`/posts?mode=feed&limit=20`);
       if (!result.success) {
         return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Постов пока нет</p></div>';
       }
@@ -915,26 +917,25 @@
           </button>
       `;
       posts.forEach(p => {
-        const ownerText = p.company_count > 0 ? `Владелец: ${p.company_count} компаний` : '';
-        const username = p.show_username_in_posts ? `@${p.username}` : 'Аноним';
-        const avatar = p.show_username_in_posts ? p.avatar_url : 'https://i.pravatar.cc/150?u=anon';
-        const likedClass = p.is_liked ? 'solid' : 'regular';
-        const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="deletePostMod('${p.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить (мод)</button>` : '';
+        let ownerText = '';
+        if (p.company_names && p.company_names.length > 0) {
+          ownerText = `Владелец: ${p.company_names.join(', ')}`;
+        }
+        const likedClass = state.likedPosts.has(p.id) ? 'fa-solid' : 'fa-regular';
+        const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="deletePost('${p.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : '';
         html += `
-          <div class="card p-4 post-card" data-post-id="${p.id}">
+          <div class="card p-4">
             <div class="flex items-center mb-2">
-              <img src="${avatar}" class="w-8 h-8 rounded-full mr-2">
+              <img src="${p.avatar_url}" class="w-8 h-8 rounded-full mr-2">
               <div>
-                <div class="font-bold">${username}</div>
+                <div class="font-bold">@${p.username}</div>
                 <div class="text-xs text-darkMuted">${ownerText}</div>
               </div>
             </div>
             <p class="post-text mb-2">${p.text}</p>
             <div class="flex text-sm text-darkMuted">
               <span class="mr-4"><i class="fa-regular fa-eye mr-1"></i>${fmt(p.views)}</span>
-              <button onclick="likePost('${p.id}')" class="flex items-center">
-                <i class="fa-${likedClass} fa-heart mr-1"></i>${fmt(p.likes)}
-              </button>
+              <span class="cursor-pointer" onclick="likePost('${p.id}')"><i class="${likedClass} fa-heart mr-1"></i>${fmt(p.likes)}</span>
             </div>
             ${modDelete}
           </div>
@@ -943,33 +944,22 @@
       html += '</div>';
       return html;
     } catch (err) {
-      toast('Ошибка загрузки', 'error');
       return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Ошибка загрузки</p></div>';
     }
   }
 
   async function likePost(id) {
+    if (state.likedPosts.has(id)) return;
     try {
       const result = await apiCall(`/posts/${id}/like`, {
         method: 'POST',
         body: JSON.stringify({ user_id: state.user.id })
       });
       if (result.success) {
+        state.likedPosts.add(id);
+        save();
         renderDinoNet();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка', 'error');
-    }
-  }
-
-  async function viewPost(id) {
-    try {
-      await apiCall(`/posts/${id}/view`, {
-        method: 'POST',
-        body: JSON.stringify({ user_id: state.user.id })
-      });
     } catch (err) {}
   }
 
@@ -977,7 +967,7 @@
     const cost = state.user.is_moderator ? 0 : ECON.POST_COST;
     openModal(`
       <h2 class="font-bold text-xl mb-4">Создать пост</h2>
-      <p class="text-sm text-yellow-400 mb-4">Не пишите ничего плохого и т.д. Мы за традиционные ценности.</p>
+      <div class="text-sm text-yellow-400 mb-4">Мы за традиционные ценности. Не пишите ничего плохого, иначе бан.</div>
       <textarea id="post-text" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Ваш текст (max ${ECON.POST_MAX_LENGTH} символов)" maxlength="${ECON.POST_MAX_LENGTH}"></textarea>
       <div class="text-sm text-yellow-400 mb-4">Стоимость: ${fmt(cost)} DINO</div>
       <button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="doCreatePost()">Отправить</button>
@@ -999,12 +989,8 @@
         state.balance = result.updated_balance;
         updateHeader();
         renderDinoNet();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   async function myPostsPanelHTML() {
@@ -1021,15 +1007,17 @@
 
       let html = '<div class="space-y-4">';
       posts.forEach(p => {
-        const likedClass = p.is_liked ? 'solid' : 'regular';
+        let ownerText = '';
+        if (p.company_names && p.company_names.length > 0) {
+          ownerText = `Владелец: ${p.company_names.join(', ')}`;
+        }
+        const likedClass = state.likedPosts.has(p.id) ? 'fa-solid' : 'fa-regular';
         html += `
           <div class="card p-4">
             <p class="post-text mb-2">${p.text}</p>
             <div class="flex text-sm text-darkMuted mb-2">
               <span class="mr-4"><i class="fa-regular fa-eye mr-1"></i>${fmt(p.views)}</span>
-              <button onclick="likePost('${p.id}')" class="flex items-center">
-                <i class="fa-${likedClass} fa-heart mr-1"></i>${fmt(p.likes)}
-              </button>
+              <span class="cursor-pointer" onclick="likePost('${p.id}')"><i class="${likedClass} fa-heart mr-1"></i>${fmt(p.likes)}</span>
             </div>
             <button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center" onclick="deletePost('${p.id}')">
               <i class="fa-solid fa-trash mr-1"></i>Удалить
@@ -1040,7 +1028,6 @@
       html += '</div>';
       return html;
     } catch (err) {
-      toast('Ошибка загрузки', 'error');
       return '<div class="text-center py-10"><i class="fa-regular fa-comment-dots text-4xl text-darkMuted mb-3"></i><p>Ошибка загрузки</p></div>';
     }
   }
@@ -1054,41 +1041,8 @@
       if (result.success) {
         toast('Пост удален!');
         renderDinoNet();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
-  }
-
-  async function deletePostMod(id) {
-    openModal(`
-      <div class="text-center">
-        <h2 class="font-bold text-xl mb-4">Подтверждение удаления</h2>
-        <p class="mb-4">Удалить пост как модератор?</p>
-        <button class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium mb-2" onclick="deletePostModFinal('${id}')">Да</button>
-        <button class="w-full py-3 rounded-xl bg-gray-600 text-white" onclick="closeModal()">Отмена</button>
-      </div>
-    `);
-  }
-
-  async function deletePostModFinal(id) {
-    try {
-      const result = await apiCall(`/posts/${id}/delete_mod`, {
-        method: 'POST',
-        body: JSON.stringify({ mod_user_id: state.user.id })
-      });
-      if (result.success) {
-        toast('Пост удален модератором!');
-        closeModal();
-        renderDinoNet();
-      } else {
-        toast(result.error, 'error');
-      }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   /*********************
@@ -1151,7 +1105,6 @@
       html += '</div>';
       return html;
     } catch (err) {
-      toast('Ошибка загрузки', 'error');
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
     }
   }
@@ -1176,14 +1129,9 @@
     }
 
     const cost = ECON.COMPANY_COSTS[count];
-    if (state.balance < cost) {
-      toast('Недостаточно DINO', 'error');
-      return;
-    }
-
     openModal(`
       <h2 class="font-bold text-xl mb-4">Создать компанию</h2>
-      <p class="text-sm text-yellow-400 mb-4">Мы ценим традиционные ценности. Не используйте плохих слов в названии, иначе будете заблокированы.</p>
+      <div class="text-sm text-yellow-400 mb-4">Мы ценим традиционные ценности. Не используйте плохих слов в названии, иначе будете заблокированы.</div>
       <input id="company-name" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Название компании">
       <div class="text-sm text-yellow-400 mb-4">Стоимость: ${fmt(cost)} DINO</div>
       <button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="doCreateCompany()">Создать</button>
@@ -1211,12 +1159,8 @@
         state.balance = result.updated_balance;
         updateHeader();
         renderBusiness();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   async function viewCompanyDetails(id) {
@@ -1347,9 +1291,7 @@
           `);
         }, 500);
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   async function buyClientsDino(id) {
@@ -1368,12 +1310,8 @@
         updateHeader();
         closeModal();
         viewCompanyDetails(id);
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   function copyText(text) {
@@ -1393,12 +1331,8 @@
         toast('Акции выпущены!');
         closeModal();
         viewCompanyDetails(id);
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   async function confirmDeleteCompany(id) {
@@ -1419,12 +1353,8 @@
         toast("Компания удалена!");
         closeModal();
         renderBusiness();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   async function deleteCompanyMod(id) {
@@ -1448,12 +1378,8 @@
         toast("Компания удалена модератором!");
         closeModal();
         renderInvestments();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   function cryptoPanelHTML(){
@@ -1505,6 +1431,10 @@
         ${invTab==='stocks' ? await stocksMarketHTML() : invTab==='crypto' ? cryptoMarketHTML() : await walletHTML()}
       </section>
     `;
+    if (invTab === 'stocks') {
+      const searchInput = document.getElementById('stock-search');
+      if (searchInput) searchInput.value = searchQuery;
+    }
   }
 
   function setInvTab(t){ invTab=t; renderInvestments(); }
@@ -1523,29 +1453,27 @@
 
       let html = `
         <div class="space-y-4">
-          <input id="stock-search" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Поиск по названию компании" value="${searchQuery}" oninput="debouncedUpdateSearch()">
+          <input id="stock-search" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Поиск по названию компании" oninput="debouncedUpdateSearch()">
       `;
       companies.forEach(c => {
         const isOwn = c.owner_id === state.user.id;
         const owner = c.show_owner_on_market ? `@${c.owner_username}` : 'Аноним';
-        const cardClass = isOwn ? 'card card-own' : 'card';
+        const cardClass = isOwn ? 'card-own' : '';
         const priceClass = c.share_price > 1 ? 'price-up' : 'price-down';
-        const badge = c.clients_count > 5000 ? '<span class="badge">POPULAR</span>' : '';
-        const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCompanyMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить (мод)</button>` : '';
+        const badgeHtml = c.clients_count > 1000 ? '<span class="badge">POPULAR</span>' : '';
+        const modDelete = state.user.is_moderator ? `<button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-sm text-white flex items-center mt-2" onclick="event.stopPropagation(); deleteCompanyMod('${c.id}')"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>` : '';
+        const ownerLabel = isOwn ? 'Ваш бизнес' : owner;
         html += `
-          <div class="${cardClass}" onclick="viewCompanyDetails('${c.id}')">
+          <div class="card ${cardClass} cursor-pointer" onclick="viewCompanyDetails('${c.id}')">
             <div class="flex justify-between items-start mb-3">
               <div>
                 <div class="flex items-center gap-2">
                   <h3 class="font-bold text-lg">${c.name}</h3>
-                  ${badge}
+                  ${badgeHtml}
                 </div>
-                <p class="text-sm text-gray-400">${owner}</p>
+                <p class="text-sm text-gray-400">${ownerLabel}</p>
               </div>
-              <div class="text-right">
-                <span class="text-sm text-gray-400">ЦЕНА</span>
-                <span class="text-lg font-bold ${priceClass}">${fmt(c.share_price, 2)}</span>
-              </div>
+              <span class="text-lg font-bold ${priceClass}">ЦЕНА: ${fmt(c.share_price, 2)}</span>
             </div>
             <div class="stats-grid">
               <div class="stat-item">
@@ -1568,7 +1496,6 @@
       html += '</div>';
       return html;
     } catch (err) {
-      toast('Ошибка загрузки', 'error');
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
     }
   }
@@ -1576,7 +1503,7 @@
   const debouncedUpdateSearch = debounce(updateSearch, 300);
 
   function updateSearch() {
-    searchQuery = document.getElementById('stock-search')?.value || '';
+    searchQuery = document.getElementById('stock-search').value;
     renderInvestments();
   }
 
@@ -1596,12 +1523,8 @@
         updateHeader();
         closeModal();
         renderInvestments();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   function cryptoMarketHTML(){
@@ -1625,7 +1548,6 @@
         html += 'Нет акций в портфеле';
       } else {
         holdings.forEach(h => {
-          const value = h.amount * h.current_price;
           const profit = h.amount * (h.current_price - h.average_purchase_price);
           const profitColor = profit >= 0 ? 'text-green-400' : 'text-red-400';
           html += `
@@ -1652,7 +1574,6 @@
       html += '</div><div class="card p-5"><h3 class="font-semibold text-lg mb-4">Криптовалюта</h3>Нет крипты в портфеле</div></div>';
       return html;
     } catch (err) {
-      toast('Ошибка загрузки', 'error');
       return '<div class="text-center py-10 card"><p>Ошибка загрузки</p></div>';
     }
   }
@@ -1672,12 +1593,8 @@
         state.balance = result.updated_balance;
         updateHeader();
         renderInvestments();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   /*********************
@@ -1743,15 +1660,21 @@
               </button>
             </div>
             <div class="flex items-center justify-between">
-              <span>Показывать владельца компании на рынке</span>
-              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowMarketOwner()">
+              <span>Показывать хозяина компании на рынке</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowOwner()">
                 ${state.user.show_owner_on_market ? 'Да' : 'Нет'}
               </button>
             </div>
             <div class="flex items-center justify-between">
-              <span>Показывать username в ДиноНет постах</span>
-              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowPostUsername()">
-                ${state.user.show_username_in_posts ? 'Да' : 'Нет'}
+              <span>Показывать username в ДиноНет</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowDinoNet()">
+                ${state.user.show_username_in_dinonet ? 'Да' : 'Нет'}
+              </button>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>Показывать username при продаже крипты</span>
+              <button class="px-4 py-2 rounded-xl bg-darkBgLight border border-darkBorder" onclick="toggleShowCrypto()">
+                ${state.user.show_username_in_crypto ? 'Да' : 'Нет'}
               </button>
             </div>
             <div class="flex items-center justify-between">
@@ -1763,6 +1686,20 @@
         ${modHtml}
       </section>
     `;
+  }
+
+  function toggleShowDinoNet() {
+    state.user.show_username_in_dinonet = !state.user.show_username_in_dinonet;
+    save();
+    saveUserData();
+    renderProfile();
+  }
+
+  function toggleShowCrypto() {
+    state.user.show_username_in_crypto = !state.user.show_username_in_crypto;
+    save();
+    saveUserData();
+    renderProfile();
   }
 
   async function searchUsers() {
@@ -1782,12 +1719,8 @@
           `;
         });
         document.getElementById('search-results').innerHTML = html;
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
   async function banUser(userId) {
@@ -1811,23 +1744,12 @@
         toast('Пользователь заблокирован!');
         closeModal();
         renderProfile();
-      } else {
-        toast(result.error, 'error');
       }
-    } catch (err) {
-      toast('Ошибка связи с сервером', 'error');
-    }
+    } catch (err) {}
   }
 
-  function toggleShowMarketOwner() {
+  function toggleShowOwner() {
     state.user.show_owner_on_market = !state.user.show_owner_on_market;
-    save();
-    saveUserData();
-    renderProfile();
-  }
-
-  function toggleShowPostUsername() {
-    state.user.show_username_in_posts = !state.user.show_username_in_posts;
     save();
     saveUserData();
     renderProfile();
