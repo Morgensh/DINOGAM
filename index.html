@@ -445,7 +445,7 @@
   // Tunable economy constants
   const ECON = {
     CLICK_INC: 1.5,
-    CLICK_COST_MULT: 1.6,
+    CLICK_COST_MULT: 2,
     COMPANY_COSTS: [0, 50000, 200000], // First free, second 50k, third 200k
     COMPANY_COOLDOWN: 8 * 60 * 60 * 1000, // 8 hours in ms
     EMISSION_COST_PER_SHARE: 25,
@@ -464,7 +464,7 @@
     balance: 1000,
     dps: 0,
     perClick: 2,
-    clickUpgradeCost: 200,
+    clickUpgradeCost: 10000,
     user: {
       id: null,
       telegram_id: null,
@@ -557,6 +557,15 @@
             referrerId = parseInt(state.startParam.split('playerref-')[1]);
             if (!isNaN(referrerId)) {
               userData.referrer_id = referrerId;
+            }
+          } else if (state.startParam.startsWith('ref-')) {
+            companyId = parseInt(state.startParam.split('ref-')[1]);
+            if (!isNaN(companyId)) {
+              // Fetch company owner as referrer
+              const companyResult = await apiCall(`/companies/${companyId}`);
+              if (companyResult.success) {
+                userData.referrer_id = companyResult.company.owner_id;
+              }
             }
           }
         }
@@ -1619,7 +1628,7 @@
               </div>
               <div class="flex justify-between text-sm mb-3">
                 <span>Клиенты: ${fmt(h.clients_count)}</span>
-                <span>Количество акций: ${fmt(h.amount)}</span>
+                <span>Ваши акции: ${fmt(h.amount)}</span>
                 <span class="${profitColor}">Прибыль: ${fmt(profit, 2)}</span>
               </div>
               <div class="flex mt-2">
@@ -1889,4 +1898,3 @@
   </script>
 </body>
 </html>
-
