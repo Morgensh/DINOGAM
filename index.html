@@ -27,6 +27,7 @@
             darkDanger: "#ef4444",
             darkMuted: "#94a3b8",
             darkBorder: "#2d323d",
+            darkText: "#f8fafc",
 
             // Light theme colors
             lightBg: "#f0f4f8",
@@ -38,7 +39,8 @@
             lightSecondary: "#d97706",
             lightDanger: "#b91c1c",
             lightMuted: "#4b5563",
-            lightBorder: "#d1d5db"
+            lightBorder: "#d1d5db",
+            lightText: "#1f2937"
           },
           boxShadow: {
             dino: "0 10px 30px rgba(16,185,129,.15)",
@@ -143,12 +145,14 @@
     .dark .card {
       background: linear-gradient(145deg, #1a1d26, #15171f);
       border: 1px solid #2d323d;
+      color: #f8fafc;
     }
 
     .light .card {
       background: linear-gradient(145deg, #ffffff, #f9fafb);
       border: 1px solid #d1d5db;
       box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      color: #1f2937;
     }
 
     .card:hover {
@@ -214,12 +218,21 @@
       color: #94a3b8;
     }
 
+    .light .stat-label {
+      color: #4b5563;
+    }
+
     .stat-value {
       font-weight: 700;
       font-size: 1rem;
       margin-top: 2px;
       color: #f1f5f9;
     }
+
+    .light .stat-value {
+      color: #1f2937;
+    }
+
     /* ==== конец карточек ==== */
 
     .pill {
@@ -365,6 +378,97 @@
       padding: 12px 16px;
       border-radius: 12px;
     }
+
+    .light #modal-root .modal-content {
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      color: #1f2937;
+    }
+
+    .light .glass {
+      background: rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .dark .text-darkMuted {
+      color: #94a3b8;
+    }
+
+    .light .text-darkMuted {
+      color: #4b5563;
+    }
+
+    .dark .text-darkPrimary {
+      color: #10b981;
+    }
+
+    .light .text-darkPrimary {
+      color: #047857;
+    }
+
+    .dark .text-darkSecondary {
+      color: #facc15;
+    }
+
+    .light .text-darkSecondary {
+      color: #d97706;
+    }
+
+    .dark .text-darkDanger {
+      color: #ef4444;
+    }
+
+    .light .text-darkDanger {
+      color: #b91c1c;
+    }
+
+    .dark .bg-darkPrimary {
+      background-color: #10b981;
+    }
+
+    .light .bg-darkPrimary {
+      background-color: #047857;
+    }
+
+    .dark .bg-darkPrimaryHover {
+      background-color: #059669;
+    }
+
+    .light .bg-darkPrimaryHover {
+      background-color: #03543f;
+    }
+
+    .dark .bg-darkCard {
+      background-color: #1d212c;
+    }
+
+    .light .bg-darkCard {
+      background-color: #ffffff;
+    }
+
+    .dark .bg-darkCardHover {
+      background-color: #232734;
+    }
+
+    .light .bg-darkCardHover {
+      background-color: #e5e7eb;
+    }
+
+    .dark .bg-darkBgLight {
+      background-color: #1a1d26;
+    }
+
+    .light .bg-darkBgLight {
+      background-color: #ffffff;
+    }
+
+    .dark .border-darkBorder {
+      border-color: #2d323d;
+    }
+
+    .light .border-darkBorder {
+      border-color: #d1d5db;
+    }
 </style>
 
 </head>
@@ -449,12 +553,12 @@
     COMPANY_COSTS: [0, 50000, 200000], // First free, second 50k, third 200k
     COMPANY_COOLDOWN: 8 * 60 * 60 * 1000, // 8 hours in ms
     EMISSION_COST_PER_SHARE: 25,
-    SHARES_PER_CLIENT: 50,
-    BASE_SHARE_PRICE: 1,
+    SHARES_PER_CLIENT: 1000,
+    BASE_SHARE_PRICE: 5,
     LOW_SHARES_THRESHOLD: 100,
     CLIENT_COST: 10000, // DINO per client
     POST_COST: 25000, // DINO per post
-    POST_MAX_LENGTH: 280,
+    POST_MAX_LENGTH: 500,
     REFERRAL_REWARD: 100000
   };
 
@@ -669,6 +773,11 @@
    *********************/
   const uid = (p="id") => p + "_" + Math.random().toString(36).slice(2,9);
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const fmtShort = (n) => {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
+    return n.toString();
+  };
   const fmt = (n, d=0) => Number(n).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
   const now = () => Date.now();
 
@@ -959,11 +1068,14 @@
       }
       const posts = result.posts;
 
+      let maxLength = state.user.is_moderator ? 9999 : ECON.POST_MAX_LENGTH;
+
       let html = `
         <div class="space-y-5">
           <div class="card p-4">
             <div class="text-sm text-yellow-400 mb-2">Мы придерживаемся традиционных ценностей. Будьте вежливы и уважительны!</div>
-            <textarea id="post-text" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-4" placeholder="Что нового? (max ${ECON.POST_MAX_LENGTH} символов)" maxlength="${ECON.POST_MAX_LENGTH}" onfocus="showDinoNetRulesIfNeeded()"></textarea>
+            <textarea id="post-text" class="w-full px-4 py-3 rounded-xl bg-darkBgLight border border-darkBorder mb-2" placeholder="Что нового? (max ${maxLength} символов)" maxlength="${maxLength}" onfocus="showDinoNetRulesIfNeeded()" oninput="updateCharCount()"></textarea>
+            <div id="char-count" class="text-sm text-darkMuted text-right mb-4">${maxLength} символов осталось</div>
             <div class="flex justify-between items-center">
               <div class="text-sm text-yellow-400">Стоимость: ${fmt(state.user.is_moderator ? 0 : ECON.POST_COST)} DINO</div>
               <button class="px-4 py-2 rounded-xl bg-darkPrimary hover:bg-darkPrimaryHover text-white font-medium" onclick="doCreatePost()">Отправить</button>
@@ -1002,6 +1114,13 @@
     }
   }
 
+  function updateCharCount() {
+    const text = document.getElementById('post-text').value;
+    const maxLength = state.user.is_moderator ? 9999 : ECON.POST_MAX_LENGTH;
+    const remaining = maxLength - text.length;
+    document.getElementById('char-count').textContent = `${remaining} символов осталось`;
+  }
+
   function showDinoNetRulesIfNeeded() {
     if (state.seenDinoNetRules) return;
     openModal(`
@@ -1033,7 +1152,8 @@
 
   async function doCreatePost() {
     const text = document.getElementById('post-text').value.trim();
-    if (!text || text.length > ECON.POST_MAX_LENGTH) return toast('Неверная длина текста', 'error');
+    const maxLength = state.user.is_moderator ? 9999 : ECON.POST_MAX_LENGTH;
+    if (!text || text.length > maxLength) return toast('Неверная длина текста', 'error');
 
     try {
       const result = await apiCall('/posts', {
@@ -1154,7 +1274,7 @@
           <button class="w-full text-left px-4 py-5 rounded-xl bg-darkCard hover:bg-darkCardHover border border-darkBorder" onclick="viewCompanyDetails('${c.id}')">
             <div class="flex justify-between items-center">
               <span class="font-bold">${escapeHtml(c.name)}</span>
-              <span class="text-sm text-darkMuted">Клиенты: ${fmt(c.clients_count)} | Цена акции: ${fmt(c.share_price, 2)}</span>
+              <span class="text-sm text-darkMuted">Клиенты: ${fmtShort(c.clients_count)} | Цена акции: ${fmt(c.share_price, 2)}</span>
             </div>
           </button>
         `;
@@ -1222,6 +1342,7 @@
         const ref = `https://t.me/dinosav_bot?start=ref-${result.company.id}`;
         openModal(`
           <h2 class="font-bold text-xl mb-4">Реферальная ссылка</h2>
+          <p class="mb-4">Пригласи своих друзей, чтобы они купили акции!</p>
           <p class="text-sm text-gray-400 mb-4">${ref}</p>
           <button class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white" onclick="copyText('${ref}')">Копировать</button>
         `);
@@ -1291,7 +1412,7 @@
           <div class="grid grid-cols-2 gap-3 mb-4">
             <div class="card p-3 text-center">
               <div class="text-gray-400 text-sm mb-1">Клиенты</div>
-              <div class="bg-darkBgLight rounded px-2 py-1 font-semibold text-lg">${fmt(c.clients_count)}</div>
+              <div class="bg-darkBgLight rounded px-2 py-1 font-semibold text-lg">${fmtShort(c.clients_count)}</div>
             </div>
             <div class="card p-3">
               <div class="text-gray-400 text-sm mb-1">Цена акции</div>
@@ -1299,7 +1420,7 @@
             </div>
             <div class="card p-3">
               <div class="text-gray-400 text-sm mb-1">Доступно акций</div>
-              <div class="font-semibold text-lg">${fmt(avail)}</div>
+              <div class="font-semibold text-lg">${fmtShort(avail)}</div>
             </div>
             <div class="card p-3">
               <div class="text-gray-400 text-sm mb-1">Доход от продаж</div>
@@ -1326,7 +1447,7 @@
             <div class="font-semibold mb-2 flex items-center text-yellow-400">
               <i class="fa-solid fa-print mr-2"></i>Эмиссия акций
             </div>
-            <div class="text-xs text-gray-400 mb-2">Доступно к выпуску: ${fmt(maxEmit)}</div>
+            <div class="text-xs text-gray-400 mb-2">Доступно к выпуску: ${fmtShort(maxEmit)}</div>
             <div class="flex items-center gap-2">
               <input id="emi_${c.id}" type="number" min="1" max="${maxEmit}"
                 class="flex-1 bg-darkCard border border-darkBorder rounded-lg px-3 py-2"
@@ -1379,7 +1500,7 @@
                 Купить
               </button>
             </div>
-            <div class="text-xs text-yellow-400 mt-1">Ваши акции: ${fmt(c.your_shares || 0)}</div>
+            <div class="text-xs text-yellow-400 mt-1">Ваши акции: ${fmtShort(c.your_shares || 0)}</div>
           </div>
         `;
       }
@@ -1562,15 +1683,15 @@
             <div class="stats-grid">
               <div class="stat-item">
                 <div class="stat-label">Клиенты</div>
-                <div class="stat-value">${fmt(c.clients_count)}</div>
+                <div class="stat-value">${fmtShort(c.clients_count)}</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Доступно</div>
-                <div class="stat-value">${fmt(c.available_shares)}</div>
+                <div class="stat-value">${fmtShort(c.available_shares)}</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Ваши</div>
-                <div class="stat-value">${fmt(c.your_shares || 0)}</div>
+                <div class="stat-value">${fmtShort(c.your_shares || 0)}</div>
               </div>
             </div>
             ${modDelete}
@@ -1627,8 +1748,8 @@
                 <span class="text-lg font-bold text-green-400">${fmt(h.current_price, 2)}</span>
               </div>
               <div class="flex justify-between text-sm mb-3">
-                <span>Клиенты: ${fmt(h.clients_count)}</span>
-                <span>Ваши акции: ${fmt(h.amount)}</span>
+                <span>Клиенты: ${fmtShort(h.clients_count)}</span>
+                <span>Ваши акции: ${fmtShort(h.amount)}</span>
                 <span class="${profitColor}">Прибыль: ${fmt(profit, 2)}</span>
               </div>
               <div class="flex mt-2">
@@ -1700,7 +1821,7 @@
         ownedHtml += `
           <div class="card p-3 rounded-xl bg-darkCardHover flex justify-between items-center">
             <span class="font-medium">${escapeHtml(c.name)}</span>
-            <span class="text-sm text-darkMuted">Клиенты: ${fmt(c.clients_count)}</span>
+            <span class="text-sm text-darkMuted">Клиенты: ${fmtShort(c.clients_count)}</span>
           </div>
         `;
       });
